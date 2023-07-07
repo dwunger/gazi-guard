@@ -2,8 +2,9 @@ import zipfile
 import os
 import sys 
 import subprocess
+import tempfile
+import shutil
 
-    
 def increment_path(base_path):
     if base_path not in os.listdir():
         return base_path + '/'
@@ -51,23 +52,44 @@ if not os.path.exists(mod_pak):
 with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
     mod_files = mod_zip.namelist()
 
-# Open the source_pak_1 file and merged_source.pak file
-with zipfile.ZipFile(source_pak_1, 'r') as source_1_zip:
-    with zipfile.ZipFile(merged_pak, 'w') as merged_zip:
-        for file in progressbar(mod_files, prefix="Generating source template: "):
-            # Check if file exists in source_pak_1
-            if file in source_1_zip.namelist():
-                # If it does, copy the file from source_pak_1 to merged_source.pak
-                with source_1_zip.open(file) as source_file:
-                    with merged_zip.open(file, 'w') as dest_file:
-                        dest_file.write(source_file.read())
-            else:
-                # If not found in source_pak_1, fall back to source_pak_0
-                with zipfile.ZipFile(source_pak_0, 'r') as source_0_zip:
-                    if file in source_0_zip.namelist():
-                        with source_0_zip.open(file) as source_file:
-                            with merged_zip.open(file, 'w') as dest_file:
-                                dest_file.write(source_file.read())
+# Create temporary directories
+source_dir_0 = tempfile.mkdtemp()
+source_dir_1 = tempfile.mkdtemp()
+
+# Unzip source_pak_0 and source_pak_1 to temporary directories
+with zipfile.ZipFile(source_pak_0, 'r') as zip_ref:
+    table = set(zip_ref.namelist())
+    for file in mod_files:
+        if file in table:
+            zip_ref.extract(file, path=source_dir_0)
+
+with zipfile.ZipFile(source_pak_1, 'r') as zip_ref:
+    table = set(zip_ref.namelist())
+    for file in mod_files:
+        if file in table:
+            zip_ref.extract(file, path=source_dir_1)
+
+# Convert the list of filenames in each source pak to a set for faster lookup
+source_files_0 = set(os.listdir(source_dir_0))
+source_files_1 = set(os.listdir(source_dir_1))
+
+with zipfile.ZipFile(merged_pak, 'w') as merged_zip:
+    for file in progressbar(mod_files, prefix="Generating source template: "):
+        if file in source_files_1:
+            # Copy the file from source_dir_1 to merged_pak
+            with open(os.path.join(source_dir_1, file), 'rb') as source_file:
+                data = source_file.read()
+                merged_zip.writestr(file, data)
+        else:
+            # Fall back to source_dir_0
+            if file in source_files_0:
+                with open(os.path.join(source_dir_0, file), 'rb') as source_file:
+                    data = source_file.read()
+                    merged_zip.writestr(file, data)
+
+# Cleanup temporary directories
+shutil.rmtree(source_dir_0)
+shutil.rmtree(source_dir_1)
 
 # Unzip merged_source.pak to source_scripts folder
 with zipfile.ZipFile(merged_pak, 'r') as merged_zip:
