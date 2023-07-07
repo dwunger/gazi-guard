@@ -12,7 +12,17 @@ def increment_path(base_path):
         if incremented_path not in os.listdir():
             return incremented_path + '/'  
         count += 1
-    
+def choose_mod_pak(mod_pak):
+    if not os.path.exists(mod_pak):
+        dir_list = [f for f in os.listdir() if f.endswith('.pak')]
+        for idx, file in enumerate(dir_list):
+            print(f'{idx} : {file}')
+        mod_idx = input("Enter mod archive index: ")
+        mod_pak = dir_list[int(mod_idx)]    
+        return mod_pak
+    else:
+        return mod_pak
+        
 def progressbar(it, prefix="", size=60, out=sys.stdout):
     #left for reference, but no longer needed
     count = len(it)
@@ -46,22 +56,16 @@ def main():
     # Define the paths to source .pak files
     source_pak_0 = 'data0.pak'
     source_pak_1 = 'data1.pak'
-    mod_pak = 'mod.pak'
-    mod_unpack_path = increment_path("mod_scripts")
-    merged_unpack_path = increment_path('source_scripts')
+    mod_pak = choose_mod_pak('mod.pak')
+    
+    mod_unpack_path = increment_path(f"{mod_pak}_mod_scripts")
+    merged_unpack_path = increment_path(f'{mod_pak}_source_scripts')
 
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                         " Try running from ./steamapps/common/Dying Light 2/ph/source/"
       
     verify_source_paks_exist(source_pak_0, source_pak_1, file_missing_error)              
     
-    if not os.path.exists(mod_pak):
-        dir_list = [f for f in os.listdir() if f.endswith('.pak')]
-        for idx, file in enumerate(dir_list):
-            print(f'{idx} : {file}')
-        mod_idx = input("Enter mod archive index: ")
-        mod_pak = dir_list[int(mod_idx)]
-
     # Open the mod.pak file and get the list of file names
     mod_file_names = get_mod_files(mod_pak)
 
