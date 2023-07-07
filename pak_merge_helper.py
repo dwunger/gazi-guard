@@ -2,8 +2,6 @@ import zipfile
 import os
 import sys 
 import subprocess
-import tempfile
-import shutil
 
 def increment_path(base_path):
     if base_path not in os.listdir():
@@ -16,6 +14,7 @@ def increment_path(base_path):
         count += 1
     
 def progressbar(it, prefix="", size=60, out=sys.stdout):
+    #left for reference, but no longer needed
     count = len(it)
     def show(j):
         x = int(size*j/count)
@@ -52,54 +51,22 @@ if not os.path.exists(mod_pak):
 with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
     mod_files = mod_zip.namelist()
 
-# Create temporary directories
-source_dir_0 = tempfile.mkdtemp()
-source_dir_1 = tempfile.mkdtemp()
-
-# Unzip source_pak_0 and source_pak_1 to temporary directories
+# Unzip relevant scripts from source_pak_0 and source_pak_1 to ./source_scripts/
 with zipfile.ZipFile(source_pak_0, 'r') as zip_ref:
     table = set(zip_ref.namelist())
     for file in mod_files:
         if file in table:
-            zip_ref.extract(file, path=source_dir_0)
+            zip_ref.extract(file, path=merged_unpack_path)
 
 with zipfile.ZipFile(source_pak_1, 'r') as zip_ref:
     table = set(zip_ref.namelist())
     for file in mod_files:
         if file in table:
-            zip_ref.extract(file, path=source_dir_1)
-
-# Convert the list of filenames in each source pak to a set for faster lookup
-source_files_0 = set(os.listdir(source_dir_0))
-source_files_1 = set(os.listdir(source_dir_1))
-
-with zipfile.ZipFile(merged_pak, 'w') as merged_zip:
-    for file in progressbar(mod_files, prefix="Generating source template: "):
-        if file in source_files_1:
-            # Copy the file from source_dir_1 to merged_pak
-            with open(os.path.join(source_dir_1, file), 'rb') as source_file:
-                data = source_file.read()
-                merged_zip.writestr(file, data)
-        else:
-            # Fall back to source_dir_0
-            if file in source_files_0:
-                with open(os.path.join(source_dir_0, file), 'rb') as source_file:
-                    data = source_file.read()
-                    merged_zip.writestr(file, data)
-
-# Cleanup temporary directories
-shutil.rmtree(source_dir_0)
-shutil.rmtree(source_dir_1)
-
-# Unzip merged_source.pak to source_scripts folder
-with zipfile.ZipFile(merged_pak, 'r') as merged_zip:
-    merged_zip.extractall(merged_unpack_path)
+            zip_ref.extract(file, path=merged_unpack_path)
 
 # Unzip mod.pak to mod_scripts/
 with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
     mod_zip.extractall(mod_unpack_path)
-
-os.remove(merged_pak)
 
 print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → ./{mod_unpack_path}\nUnpacked source scripts → ./{merged_unpack_path}\n")
 
