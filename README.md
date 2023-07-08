@@ -1,6 +1,6 @@
 # Dying Light 2 Mod Update Helper
 
-This repository contains a python script (`pak_merge_helper.py`) which helps mod developers in preparing their Dying Light 2 mods for updates. The script extracts only the relevant mod files, creates two directories, and compares them using Meld to quickly review differences and merge updates as needed.
+This repository contains a Python script which helps mod developers in preparing their Dying Light 2 mods for updates. The script extracts only the relevant mod files, creates two directories, and compares them using Meld to quickly review differences and merge updates as needed. Changes in the mod are automatically saved and updated in the `.pak` file whenever the script detects a file change.
 
 ## Prerequisites
 
@@ -19,6 +19,21 @@ At the end of the script execution, you will find two directories:
 
 1. `mod_scripts/` - Contains the unpacked files from your mod.
 2. `source_scripts/` - Contains the unpacked files from the base game's data.pak.
+
+The script also provides an automatic update feature. It monitors the `mod_scripts/` directory for any changes and instantly updates the corresponding `.pak` file with the new mod contents. This saves the developers the manual effort of re-packing the mod whenever a change is made.
+
+## Configuration
+
+The script uses a `config.ini` file for various settings, which includes:
+
+- Deep scan option for comparing files and directories
+- Source pak files paths
+- Mod pak file path
+- Overwrite default behavior
+- Hide unpacked content (makes the unpacked directories hidden)
+- Meld path (optional)
+
+Please adjust these settings as per your requirements before running the script.
 
 ## Limitations
 
