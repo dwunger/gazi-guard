@@ -21,26 +21,21 @@ def are_dirs_identical(dir1, dir2):
     # No differences found
     return True
 
-def directory_matches_zip(dir_path, zip_file):
-    """
-    Check if a directory has the same files as a ZipFile.
-    """
-    dir_files = set(os.listdir(dir_path))
-    zip_files = set(zip_file.namelist())
 
-    return dir_files == zip_files
 def directory_matches_zip(dir_path, zip_file):
     """
     Check if a directory has the same files as a ZipFile.
     """
     # Get a list of all files in dir_path
     dir_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(dir_path) for f in filenames]
-    dir_files = [file.replace(dir_path + '/', '') for file in dir_files]  # Make paths relative to dir_path
+    dir_files = [file.replace(dir_path + os.sep, '').replace(os.sep, '/') for file in dir_files]  # Make paths relative to dir_path and use forward slash
 
-    # Get a list of all files in zip_file
     zip_files = [name for name in zip_file.namelist() if not name.endswith('/')]  # Remove directories
-
+    
+    print(f"{dir_files} temp len | {zip_files} zip files len")
+    
     return set(dir_files) == set(zip_files)
+
 
 def increment_path(base_path):
     if base_path not in os.listdir():
@@ -120,19 +115,24 @@ def main():
     # Inside the main function...
     # Open mod.pak without unzipping
     with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
+        file_list = mod_zip.namelist()
         # If the target directory exists and matches the contents of the .pak file,
         # then there's no need to unzip again
         if os.path.exists(mod_unpack_path) and directory_matches_zip(mod_unpack_path, mod_zip):
             print("The mod scripts are already extracted and up-to-date.")
-            identical_check = input("Do you want to check for identical content? (y/n) ")
+            identical_check = input(f"Scan for changes to {mod_pak}? (y/n) ")
             if identical_check.lower() == "y":
                 # Here you can add the logic to compare the content of the files in the directory and the .pak
-            else:
                 mod_zip.extractall('temp')
-                if
+                print(are_dirs_identical('temp', mod_unpack_path))
+            else:
+                print('else! Hi mom!')
+                
         else:
             # Prompt to overwrite or increment path
-            overwrite = input(f"{mod_unpack_path} already exists. Overwrite? (y/n) ")
+            overwrite = 'y'
+            if os.path.exists(mod_unpack_path):
+                overwrite = input(f"{mod_unpack_path} already exists. Overwrite? (y/n) ")
             if overwrite.lower() != "y":
                 print("Exiting without overwriting.")
                 return
