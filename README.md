@@ -21,6 +21,7 @@ Upon execution, the script generates two directories:
 2. `source_scripts/` - Contains the unpacked files from the base game's data.pak.
    
 🌟🌟🌟
+
 This tool introduces an automatic update feature. It monitors the `mod_scripts/` directory for any changes and instantly updates the corresponding `.pak` file with the modified mod contents. This feature saves developers from manually repacking the mod each time a change is made.
 
 ## Configuration
