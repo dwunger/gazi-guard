@@ -12,10 +12,6 @@ import stat
 import tkinter as tk
 from tkinter import messagebox
 
-
-
-
-
 def prompt_open_with_program(url):
     os.startfile(url)
 
@@ -82,6 +78,7 @@ def read_config():
     return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path
 
 def set_folder_hidden(folder_path):
+
     if os.name == 'nt':
         try:
             # For Windows
@@ -101,7 +98,9 @@ def set_folder_hidden(folder_path):
             print("os.chflags is not supported on this platform.")
         except OSError as e:
             print(f"Error occurred: {e}")
-
+def set_folders_hidden(paths):
+    for path in paths:
+        set_folder_hidden(path)
 def remove_hidden_attribute(folder_path):
     if os.name == 'nt':
         try:
@@ -127,7 +126,9 @@ def remove_hidden_attribute(folder_path):
             print("os.chflags is not supported on this platform.")
         except OSError as e:
             print(f"Error occurred: {e}")
-
+def remove_hidden_attributes(paths):
+    for path in paths:
+        remove_hidden_attribute(path)
 def are_dirs_identical(dir1, dir2):
     # Compare files in the directories
     comparison = filecmp.dircmp(dir1, dir2)
@@ -243,6 +244,7 @@ def wait_for_meld_installation():
         meld_path = get_meld_path()
         time.sleep(0.5)  # Wait for 1 second before checking again
     return meld_path
+
 def main():
     deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, hide_unpacked_content, meld_config_path = read_config()
     url = "https://meldmerge.org/"
@@ -279,13 +281,9 @@ def main():
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
     if hide_unpacked_content:
-        set_folder_hidden('Unpacked')
-        set_folder_hidden(merged_unpack_path)            
-        set_folder_hidden(mod_unpack_path)
+        set_folders_hidden(['Unpacked', merged_unpack_path, mod_unpack_path])
     else:
-        remove_hidden_attribute('Unpacked')
-        remove_hidden_attribute(merged_unpack_path)
-        remove_hidden_attribute(mod_unpack_path)
+        remove_hidden_attributes(['Unpacked', merged_unpack_path, mod_unpack_path])
     print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → ./{mod_unpack_path}\nUnpacked source scripts → ./{merged_unpack_path}\n")
     
 
