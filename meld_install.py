@@ -22,6 +22,12 @@ def get_meld_path(meld_config_path=None):
     if meld_config_path:
         return meld_config_path    
     where_meld = shutil.which('meld')
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    config.set('Meld', 'path', where_meld)
+
+    with open('config.ini', 'w') as config_file:
+        config.write(config_file)
     if where_meld:
         return where_meld
     else:
@@ -34,22 +40,3 @@ def wait_for_meld_installation():
         meld_path = get_meld_path()
         time.sleep(0.5)  # Wait for 1 second before checking again
     return meld_path
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    

@@ -6,6 +6,14 @@ import time
 from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation
 from file_system import *
 
+#TODO:
+#! Protect against catastrophic failures
+# Implement rolling backups  
+# Simple GUI for configuration
+# GUI to monitor repack status
+# Prune rewrites to update mod archive
+#BUG: Unexpected rewrite loop occasionally on startup
+
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, mod_unpack_path, mod_pak) -> None:
         self.mod_unpack_path = mod_unpack_path
