@@ -12,15 +12,9 @@ import stat
 import tkinter as tk
 from tkinter import messagebox
 
-def wait_for_meld_installation():
-    meld_path = "C:/Program Files/Meld/Meld.exe"
-    meld_installed = os.path.exists(meld_path)
-    
-    while not meld_installed:
-        time.sleep(0.5)  # Wait for 1 second before checking again
 
-    
-    return meld_path
+
+
 
 def prompt_open_with_program(url):
     os.startfile(url)
@@ -33,9 +27,6 @@ def prompt_install_meld():
     if response == 'yes':
         url = "https://meldmerge.org/"
         prompt_open_with_program(url)
-
-# Call the function to prompt the user
-prompt_install_meld()
 
 
 def progressbar(it, prefix="", size=60, out=sys.stdout):
@@ -86,9 +77,9 @@ def read_config():
     mod_pak = config.get('Paths', 'mod_pak')
     overwrite_default = config.getboolean('Misc', 'overwrite_default')
     hide_unpacked_content = config.getboolean('Misc', 'hide_unpacked_content')
-    meld_path = config.get('Meld', 'path', fallback=None)
+    meld_config_path = config.get('Meld', 'path', fallback=None)
 
-    return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_path
+    return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path
 
 def set_folder_hidden(folder_path):
     if os.name == 'nt':
@@ -234,14 +225,40 @@ def file_basename(filename):
     return filename.rsplit('.')[0]
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
-    meld_process = subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
+    return subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
+
+def get_meld_path(meld_config_path=None):
+    if meld_config_path:
+        return meld_config_path    
+    where_meld = shutil.which('meld')
+    if where_meld:
+        return where_meld
+    else:
+        return None
+def wait_for_meld_installation():
+    # meld_path = "C:/Program Files/Meld/Meld.exe"
+    # meld_installed = os.path.exists(meld_path)
+    meld_path = None
+    while not meld_path:
+        meld_path = get_meld_path()
+        time.sleep(0.5)  # Wait for 1 second before checking again
+    return meld_path
 def main():
-    deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, hide_unpacked_content, meld_path = read_config()
+    deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, hide_unpacked_content, meld_config_path = read_config()
     url = "https://meldmerge.org/"
     # Define the paths to source .pak files
     source_pak_0 = 'data0.pak'
     source_pak_1 = 'data1.pak'
     mod_pak = choose_mod_pak(mod_path)
+
+    use_meld = True #add to config
+    if use_meld:
+        meld_path = get_meld_path(meld_config_path=meld_config_path)
+        if not meld_path:
+            prompt_install_meld()
+            wait_for_meld_installation()
+            
+
 
     mod_unpack_path = f"Unpacked\\{file_basename(mod_pak)}_mod_scripts"
     merged_unpack_path = f'Unpacked\\{file_basename(mod_pak)}_source_scripts'
@@ -273,12 +290,14 @@ def main():
     
 
     try:
-        launch_meld(meld_path,mod_unpack_path,merged_unpack_path)
+        meld_process = launch_meld(meld_path,mod_unpack_path,merged_unpack_path)
         print("Launching Meld for review...")
     except FileNotFoundError:
         print('\nMeld does not appear in PATH or specified path is incorrect. Please install from https://meldmerge.org/ or specify the correct path in the config.ini file.')
-        prompt_install_meld()
+        
         meld_path = wait_for_meld_installation()
+        meld_process = launch_meld(meld_path,mod_unpack_path,merged_unpack_path)
+
         
     # Instantiate event handler and observer
     file_observer = Observer()
