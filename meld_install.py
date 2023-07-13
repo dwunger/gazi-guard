@@ -1,6 +1,22 @@
 import tkinter as tk
 from tkinter import messagebox
 import os, time, subprocess, shutil
+import configparser
+def add_config_notes():
+    note = '''\n\n; NOTES
+; Overwrite: 
+; If changes are made to unpacked files using a different editor, how should these changes be handled 
+; next time this tool runs:
+;
+;   - true:  mod_pak (dataX.pak) is the master copy of the mod. Untracked changes to the 
+;            unpacked mod directory will be overwritten.
+;   - false: The unpacked mod is the master copy. Untracked changes to mod_pak (dataX.pak) 
+;            will be overwritte
+; Hide: 
+; The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
+'''
+    with open("config.ini", "a") as config:
+        config.write(note)
 def prompt_open_with_program(url):
     os.startfile(url)
 
@@ -22,13 +38,13 @@ def get_meld_path(meld_config_path=None):
     if meld_config_path:
         return meld_config_path    
     where_meld = shutil.which('meld')
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    config.set('Meld', 'path', where_meld)
-
-    with open('config.ini', 'w') as config_file:
-        config.write(config_file)
     if where_meld:
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        config.set('Meld', 'path', where_meld)
+        with open('config.ini', 'w') as config_file:
+            config.write(config_file)
+        add_config_notes()
         return where_meld
     else:
         return None

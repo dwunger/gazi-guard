@@ -5,7 +5,7 @@ from watchdog.events import FileSystemEventHandler
 import time
 from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation
 from file_system import *
-
+import glob
 #TODO:
 #! Protect against catastrophic failures
 # Implement rolling backups  
@@ -38,8 +38,10 @@ def read_config():
     overwrite_default = config.getboolean('Misc', 'overwrite_default')
     hide_unpacked_content = config.getboolean('Misc', 'hide_unpacked_content')
     meld_config_path = config.get('Meld', 'path', fallback=None)
-    use_meld = config.getboolean('Meld', 'use_meld')
-    return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld
+    use_meld = config.getboolean('Meld', 'enable')
+    backup_enabled = config.getboolean('Backups', 'enable')
+    backup_count = config.getint('Backups', 'count')
+    return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count
     
 class MeldHandler:
     def __init__(self, mod_unpack_path, merged_unpack_path, use_meld, meld_config_path=None):
@@ -81,26 +83,55 @@ class ObserverHandler:
     def stop(self):
         self.file_observer.stop()
         self.file_observer.join()
+class BackupHandler:
+    def __init__(self, backup_path, backup_count, mod_pak):
+        self.backup_path = backup_path
+        self.backup_count = backup_count
+        self.mod_pak = mod_pak
+        self.handle_backup()
 
+    def handle_backup(self):
+        # Ensure the backup directory exists
+        os.makedirs(self.backup_path, exist_ok=True)
+        # Copy the mod_pak file to the backup directory
+        timestamp = int(time.time())
+        backup_file = os.path.join(self.backup_path, f'backup_{timestamp}.pak')
+        shutil.copy(self.mod_pak, backup_file)
+
+        # Get a list of all backup files
+        all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
+
+        # If the number of backups exceeds the maximum allowed count
+        if len(all_backups) > self.backup_count:
+            # Sort the backups by their creation times (obtained from filenames)
+            sorted_backups = sorted(all_backups, key=lambda f: int(f.split('_')[-1].split('.')[0]))
+
+            # Delete the oldest backup file
+            os.remove(sorted_backups[0])
 def main():
     deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
-        hide_unpacked_content, meld_config_path, use_meld = read_config()
-
+        hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
+    backup_path = 'Unpacked\\backups\\'
     mod_pak = choose_mod_pak(mod_path)
-    
+    #immediate backup on selection
+    if backup_enabled:
+        backup_handler = BackupHandler(backup_path, backup_count, mod_pak)
+
+
+
     mod_unpack_path = f"Unpacked\\{file_basename(mod_pak)}_mod_scripts"
     merged_unpack_path = f'Unpacked\\{file_basename(mod_pak)}_source_scripts'
 
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
-      
+    
     verify_source_paks_exist(source_pak_0, source_pak_1, file_missing_error)              
     
     mod_file_names = get_mod_files(mod_pak)
 
     extract_source_scripts(source_pak_0, mod_file_names, merged_unpack_path)
     extract_source_scripts(source_pak_1, mod_file_names, merged_unpack_path)
-
+    
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
     if hide_unpacked_content:
