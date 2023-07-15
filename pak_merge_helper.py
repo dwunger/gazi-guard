@@ -15,9 +15,10 @@ import glob
 #BUG: Unexpected rewrite loop occasionally on startup
 
 class FileChangeHandler(FileSystemEventHandler):
-    def __init__(self, mod_unpack_path, mod_pak) -> None:
+    def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
         self.mod_unpack_path = mod_unpack_path
         self.mod_pak = mod_pak
+        self.copy_to = copy_to
     def on_modified(self, event):
         if not event.is_directory:
             # Check if the modified file is in the mod_unpack_path
@@ -25,12 +26,15 @@ class FileChangeHandler(FileSystemEventHandler):
             # print(f'Modified file: {event.src_path}')
             if os.path.commonpath([self.mod_unpack_path]) == self.mod_unpack_path:
                 update_archive(self.mod_unpack_path, self.mod_pak)
+                if self.copy_to:
+                    update_archive(self.mod_unpack_path, self.copy_to)
                 print('Saved changes!')
 
 def read_config():
     config = configparser.ConfigParser()
     config.read('config.ini')
-    
+    target_workspace = config.get('Workspace', 'target', fallback='')
+    copy_to = config.get('Dev', 'copyto', fallback=None)
     deep_scan = config.getboolean('Scan', 'deep_scan')
     source_pak_0 = config.get('Paths', 'source_pak_0')
     source_pak_1 = config.get('Paths', 'source_pak_1')
@@ -41,7 +45,7 @@ def read_config():
     use_meld = config.getboolean('Meld', 'enable')
     backup_enabled = config.getboolean('Backups', 'enable')
     backup_count = config.getint('Backups', 'count')
-    return deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count
+    return target_workspace, copy_to, deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count
     
 class MeldHandler:
     def __init__(self, mod_unpack_path, merged_unpack_path, use_meld, meld_config_path=None):
@@ -70,11 +74,12 @@ class MeldHandler:
         return self.meld_process.poll() if self.meld_process else None
 
 class ObserverHandler:
-    def __init__(self, mod_unpack_path, mod_pak):
+    def __init__(self, mod_unpack_path, mod_pak, copy_to):
         self.mod_unpack_path = mod_unpack_path
         self.mod_pak = mod_pak
+        self.copy_to = copy_to
         self.file_observer = Observer()
-        self.event_handler = FileChangeHandler(mod_unpack_path=self.mod_unpack_path, mod_pak=self.mod_pak)
+        self.event_handler = FileChangeHandler(mod_unpack_path=self.mod_unpack_path, mod_pak=self.mod_pak, copy_to=self.copy_to)
 
     def start(self):
         self.file_observer.schedule(self.event_handler, path=self.mod_unpack_path, recursive=True)
@@ -93,10 +98,12 @@ class BackupHandler:
     def handle_backup(self):
         # Ensure the backup directory exists
         os.makedirs(self.backup_path, exist_ok=True)
-        # Copy the mod_pak file to the backup directory
+
+        # Compress the mod_pak file
         timestamp = int(time.time())
-        backup_file = os.path.join(self.backup_path, f'backup_{timestamp}.pak')
-        shutil.copy(self.mod_pak, backup_file)
+        compressed_file = os.path.join(self.backup_path, f'backup_{timestamp}.pak')
+        with zipfile.ZipFile(compressed_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(self.mod_pak, os.path.basename(self.mod_pak))
 
         # Get a list of all backup files
         all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
@@ -109,18 +116,17 @@ class BackupHandler:
             # Delete the oldest backup file
             os.remove(sorted_backups[0])
 def main():
-    deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
+    target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
-    backup_path = 'Unpacked\\backups\\'
-    mod_pak = choose_mod_pak(mod_path)
+    backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
+    mod_pak = choose_mod_pak(os.path.join(target_workspace,mod_path))
     #immediate backup on selection
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod_pak)
-
-
-
-    mod_unpack_path = f"Unpacked\\{file_basename(mod_pak)}_mod_scripts"
-    merged_unpack_path = f'Unpacked\\{file_basename(mod_pak)}_source_scripts'
+    # source_pak_0 = os.path.join(target_workspace, source_pak_0)
+    # source_pak_1 = os.path.join(target_workspace, source_pak_1)
+    mod_unpack_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod_pak)}_mod_scripts")
+    merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod_pak)}_source_scripts')
 
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
@@ -135,16 +141,22 @@ def main():
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
     if hide_unpacked_content:
-        set_folders_hidden(['Unpacked', merged_unpack_path, mod_unpack_path])
+        try:
+            set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+                print('Program did the bad!')
     else:
-        remove_hidden_attributes(['Unpacked', merged_unpack_path, mod_unpack_path])
+        try:
+            remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+            print('Program did the bad!')
 
-    print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → ./{mod_unpack_path}\nUnpacked source scripts → ./{merged_unpack_path}\n")
+    print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
     
     meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path)
     meld_handler.handle()
 
-    observer_handler = ObserverHandler(mod_unpack_path, mod_pak)
+    observer_handler = ObserverHandler(mod_unpack_path, mod_pak, copy_to)
     observer_handler.start()
 
     try:

@@ -109,10 +109,10 @@ def prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_d
                         shutil.rmtree(mod_unpack_path)
                     mod_zip.extractall(mod_unpack_path)
         else:
-            overwrite = 'y'
-            if os.path.exists(mod_unpack_path):
-                overwrite = input(f"{mod_unpack_path} already exists. Overwrite? (y/n) ")
-            if overwrite.lower() != "y":
+            # overwrite = 'y'
+            # if os.path.exists(mod_unpack_path):
+            #     overwrite = input(f"{mod_unpack_path} already exists. Overwrite? (y/n) ")
+            if overwrite_default == False:
                 print("Exiting without overwriting.")
                 return
             if os.path.exists(mod_unpack_path):
@@ -127,8 +127,8 @@ def verify_source_paks_exist(source_pak_0, source_pak_1, error_message):
     if not os.path.exists(source_pak_0) or not os.path.exists(source_pak_1):
         raise FileNotFoundError(error_message)
 
-def file_basename(filename):
-    return filename.rsplit('.')[0]
+def file_basename(filepath):
+    return os.path.splitext(os.path.basename(filepath))[0]
 
 def increment_path(base_path):
     if base_path not in os.listdir():
@@ -156,6 +156,9 @@ def extract_source_scripts(source_archive, mod_file_names, destination):
     #pass source_pak_0 and source_pak_1
     with zipfile.ZipFile(source_archive, 'r') as zip_ref:
         table = set(zip_ref.namelist())
+        print(zip_ref.namelist()[0:10])
+        print(mod_file_names[0:10])
         for file in mod_file_names:
             if file in table:
                 zip_ref.extract(file, path=destination)
+            
