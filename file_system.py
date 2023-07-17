@@ -3,6 +3,11 @@ import shutil
 import zipfile
 import stat
 import os
+import py7zr
+import zipfile
+import tempfile
+import shutil
+
 def update_archive(source_path, target_path):
     with zipfile.ZipFile(target_path, 'w') as zipf:
         for foldername, subfolders, filenames in os.walk(source_path):
@@ -119,9 +124,39 @@ def prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_d
                 shutil.rmtree(mod_unpack_path)
             mod_zip.extractall(mod_unpack_path)
 
+# def get_mod_files(mod_pak):
+#     with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
+#         return mod_zip.namelist()
+
 def get_mod_files(mod_pak):
-    with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
-        return mod_zip.namelist()
+    try:
+        with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
+            return mod_zip.namelist()
+    except zipfile.BadZipFile:
+        # Fallback method for LZMA2
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with py7zr.SevenZipFile(mod_pak, mode='r') as z:
+                z.extractall(path=temp_dir)
+            temp_zip_path = os.path.join(temp_dir, "temp.zip")
+            with zipfile.ZipFile(temp_zip_path, 'w') as zipf:
+                for foldername, subfolders, filenames in os.walk(temp_dir):
+                    for filename in filenames:
+                        zipf.write(os.path.join(foldername, filename),
+                                   os.path.relpath(os.path.join(foldername, filename), temp_dir),
+                                   compress_type=zipfile.ZIP_DEFLATED)
+            # Replace original .pak file with new Zip file
+            os.remove(mod_pak)
+            shutil.move(temp_zip_path, mod_pak)
+            with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
+                return mod_zip.namelist()
+
+
+
+# import tarfile
+
+# def get_mod_files(mod_pak):
+#     with tarfile.open(mod_pak, 'r:gz') as mod_tar:
+#         return mod_tar.getnames()
 
 def verify_source_paks_exist(source_pak_0, source_pak_1, error_message):
     if not os.path.exists(source_pak_0) or not os.path.exists(source_pak_1):
@@ -140,13 +175,15 @@ def increment_path(base_path):
             return incremented_path + '/'  
         count += 1
 
-def choose_mod_pak(mod_pak):
+def choose_mod_pak(mod_pak, target_workspace):
+    print (mod_pak)
     if not os.path.exists(mod_pak):
-        dir_list = [f for f in os.listdir() if f.endswith('.pak')]
+        dir_list = [f for f in os.listdir(target_workspace) if f.endswith('.pak')]
         for idx, file in enumerate(dir_list):
             print(f'{idx} : {file}')
         mod_idx = input("Enter mod archive index: ")
-        mod_pak = dir_list[int(mod_idx)]    
+        mod_pak = dir_list[int(mod_idx)]
+        mod_pak = os.path.join(target_workspace, mod_pak) 
         return mod_pak
     else:
         return mod_pak
