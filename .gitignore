@@ -1,3 +1,5 @@
 *.pak
 Unpacked/
 __pycache__/
+FlatMetal.qtcurve
+threadtest.py
