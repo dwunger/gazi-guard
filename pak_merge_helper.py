@@ -6,13 +6,12 @@ import time
 from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation
 from file_system import *
 import glob
-#TODO:
-#! Protect against catastrophic failures
-# Implement rolling backups  
-# Simple GUI for configuration
-# GUI to monitor repack status
-# Prune rewrites to update mod archive
-#BUG: Unexpected rewrite loop occasionally on startup
+import window
+from win10toast import ToastNotifier
+
+def show_notification(title, message):
+    toaster = ToastNotifier()
+    toaster.show_toast(title, message, duration=2)
 
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
@@ -25,10 +24,12 @@ class FileChangeHandler(FileSystemEventHandler):
             print('Change detected! Do not exit while saving...')
             # print(f'Modified file: {event.src_path}')
             if os.path.commonpath([self.mod_unpack_path]) == self.mod_unpack_path:
+                # Example usage
+                show_notification("Mod is being updated...")
                 update_archive(self.mod_unpack_path, self.mod_pak)
                 if self.copy_to:
                     update_archive(self.mod_unpack_path, self.copy_to)
-                print('Saved changes!')
+                show_notification("Changes saved!")
 
 def read_config():
     config = configparser.ConfigParser()
@@ -115,6 +116,7 @@ class BackupHandler:
 
             # Delete the oldest backup file
             os.remove(sorted_backups[0])
+            
 def main():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
@@ -169,5 +171,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
 
+    # Start the GUI thread
+    # gui_thread = window.GuiThread()
+    # gui_thread.start()
+
+    # Run the main program
+    main()
