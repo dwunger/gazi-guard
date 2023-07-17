@@ -3,7 +3,7 @@ import configparser
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import time
-from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation
+from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation, prompt_enter_config
 from file_system import *
 import glob
 import window
@@ -13,8 +13,6 @@ from PIL import Image
 from pystray import MenuItem as item
 import threading
 from plyer import notification
-
-
 
 class RateLimitedNotifier:
     def __init__(self, min_interval=5):  # interval in seconds
@@ -28,28 +26,6 @@ class RateLimitedNotifier:
             # Do the notification here
             notification.notify(title=title, message=message)
 rate_limiter = RateLimitedNotifier()
-
-# Create a thread for the system tray functionality
-def tray_thread():
-    # Create a function to handle the kill action
-    def kill_action(icon, item):
-        icon.stop()
-        os.kill(os.getpid(), 9)
-        return 0
-    # Create a function to build the system tray menu
-    def build_menu():
-        menu = (
-            item('Close', kill_action),
-        )
-        return menu
-    # Load the application icon
-    icon_path = 'icon64.ico'
-    icon_image = Image.open(icon_path)
-
-    # Create the system tray icon
-    icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
-    icon.run()
-    
 def show_notification(title, message):
     toaster = ToastNotifier()
     toaster.show_toast(title, message, duration=2)
@@ -166,12 +142,42 @@ class BackupHandler:
             # Delete the oldest backup file
             os.remove(sorted_backups[0])
             
+# Create a thread for the system tray functionality
+def tray_thread():
+    def prefs():
+        
+        # Start the GUI thread
+        if prompt_enter_config(): #ready to enter config bool
+            
+            gui_thread = window.GuiThread()
+            gui_thread.start()
+
+    # Create a function to handle the kill action
+    def kill_action(icon, item):
+        icon.stop()
+        os.kill(os.getpid(), 9)
+        return 0
+    # Create a function to build the system tray menu
+    def build_menu():
+        menu = (
+            item('Close', kill_action),
+            item('Preferences', prefs)
+        )
+        return menu
+    # Load the application icon
+    icon_path = 'icon64.ico'
+    icon_image = Image.open(icon_path)
+
+    # Create the system tray icon
+    icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
+    icon.run()
+
 def main():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
     mod_pak = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
-    print(mod_pak)
+
     #immediate backup on selection
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod_pak)
@@ -179,7 +185,7 @@ def main():
     source_pak_1 = os.path.join(target_workspace, source_pak_1)
     mod_unpack_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod_pak)}_mod_scripts")
     merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod_pak)}_source_scripts')
-    print(source_pak_0, source_pak_1, mod_pak)
+
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
     
@@ -192,6 +198,7 @@ def main():
     
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
+
     if hide_unpacked_content:
         try:
             set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
@@ -225,10 +232,6 @@ def main():
 
 
 if __name__ == '__main__':
-
-    # Start the GUI thread
-    # gui_thread = window.GuiThread()
-    # gui_thread.start()
 
     # Run the main program
     main()
