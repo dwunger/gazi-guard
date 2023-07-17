@@ -29,7 +29,16 @@ def prompt_install_meld():
     if response == 'yes':
         url = "https://meldmerge.org/"
         prompt_open_with_program(url)
+
+def prompt_enter_config():
+    root = tk.Tk()
+    root.withdraw()
+    response = messagebox.askquestion("Please save any changes", "Editor will be closed. Continue to settings?", type = messagebox.YESNO)
     
+    if response == 'yes':
+        return True
+    else:
+        return False
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
     return subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
