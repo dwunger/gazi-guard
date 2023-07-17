@@ -108,9 +108,17 @@ class BackupHandler:
 
         # Get a list of all backup files
         all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
+        
+        #block if deleting more than one backup
+        files_to_delete = len(all_backups) - self.backup_count 
+        if files_to_delete > 1:
+            delete_choice = input(f"{files_to_delete} backups were found! Only {self.backup_count} were expected. Delete oldest \nDelete {self.backup_count - files_to_delete} oldest backups? y/n")
+            if delete_choice != 'y':
+                return
 
         # If the number of backups exceeds the maximum allowed count
-        if len(all_backups) > self.backup_count:
+        while len(all_backups) > self.backup_count:
+            all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
             # Sort the backups by their creation times (obtained from filenames)
             sorted_backups = sorted(all_backups, key=lambda f: int(f.split('_')[-1].split('.')[0]))
 
@@ -121,20 +129,21 @@ def main():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
-    mod_pak = choose_mod_pak(os.path.join(target_workspace,mod_path))
+    mod_pak = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
+    print(mod_pak)
     #immediate backup on selection
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod_pak)
-    # source_pak_0 = os.path.join(target_workspace, source_pak_0)
-    # source_pak_1 = os.path.join(target_workspace, source_pak_1)
+    source_pak_0 = os.path.join(target_workspace, source_pak_0)
+    source_pak_1 = os.path.join(target_workspace, source_pak_1)
     mod_unpack_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod_pak)}_mod_scripts")
     merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod_pak)}_source_scripts')
-
+    print(source_pak_0, source_pak_1, mod_pak)
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
     
     verify_source_paks_exist(source_pak_0, source_pak_1, file_missing_error)              
-    
+
     mod_file_names = get_mod_files(mod_pak)
 
     extract_source_scripts(source_pak_0, mod_file_names, merged_unpack_path)
