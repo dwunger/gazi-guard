@@ -130,15 +130,15 @@ class GuiThread(threading.Thread):
 
         # Create actions for the menu
         action1 = QtWidgets.QAction("Open...", window)
-        action1.triggered.connect(self.openFileDialog)
+        # action1.triggered.connect(self.openFileDialog)
         menu.addAction(action1)
 
         action2 = QtWidgets.QAction("Hide", window)
         menu.addAction(action2)
         # Create actions for the menu
-        action3 = QtWidgets.QAction("Options...", window)
-        action3.triggered.connect(self.openOptionsDialog)
-        menu.addAction(action3)
+        # action3 = QtWidgets.QAction("Options...", window)
+        # action3.triggered.connect(self.openOptionsDialog)
+        # menu.addAction(action3)
 
         # Create a button in the toolbar to display the menu
         menu_button = QtWidgets.QToolButton(toolbar)
@@ -149,9 +149,9 @@ class GuiThread(threading.Thread):
 
         # Add the button to the toolbar
         toolbar.addWidget(menu_button)
-        def openOptionsDialog(self):
-            dialog = OptionsDialog(self)
-            dialog.exec_()
+        # def openOptionsDialog(self):
+        #     dialog = OptionsDialog(self)
+        #     dialog.exec_()
 
         # Display the window
         window.show()
