@@ -142,13 +142,10 @@ class BackupHandler:
             # Delete the oldest backup file
             os.remove(sorted_backups[0])
             
-# Create a thread for the system tray functionality
 def tray_thread():
     def prefs():
-        
         # Start the GUI thread
-        if prompt_enter_config(): #ready to enter config bool
-            
+        if prompt_enter_config(): #-> boolready to enter config bool
             gui_thread = window.GuiThread()
             gui_thread.start()
 
@@ -167,12 +164,23 @@ def tray_thread():
     # Load the application icon
     icon_path = 'icon64.ico'
     icon_image = Image.open(icon_path)
-
     # Create the system tray icon
     icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
     icon.run()
-
-def main():
+    
+def set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path):
+    if hide_unpacked_content:
+        try:
+            set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+                print('Program did the bad!')
+    else:
+        try:
+            remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+            print('Program did the bad!')
+            
+def initialize_workspace():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
@@ -198,19 +206,14 @@ def main():
     
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
-
-    if hide_unpacked_content:
-        try:
-            set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
-        except Exception as e:
-                print('Program did the bad!')
-    else:
-        try:
-            remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
-        except Exception as e:
-            print('Program did the bad!')
-
+    set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path)
     print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
+    return (mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak)
+
+def main():
+    mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak = initialize_workspace()
+
+
     # Create the system tray icon
     tray = threading.Thread(target=tray_thread)
     tray.daemon = True  # Allow the program to exit even if the thread is running
