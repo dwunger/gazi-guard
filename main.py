@@ -8,7 +8,48 @@ from file_system import *
 import glob
 import window
 from win10toast import ToastNotifier
+import pystray
+from PIL import Image
+from pystray import MenuItem as item
+import threading
+from plyer import notification
 
+
+
+class RateLimitedNotifier:
+    def __init__(self, min_interval=5):  # interval in seconds
+        self.min_interval = min_interval
+        self.last_notify_time = 0
+
+    def notify(self, title, message):
+        current_time = time.time()
+        if current_time - self.last_notify_time > self.min_interval:
+            self.last_notify_time = current_time
+            # Do the notification here
+            notification.notify(title=title, message=message)
+rate_limiter = RateLimitedNotifier()
+
+# Create a thread for the system tray functionality
+def tray_thread():
+    # Create a function to handle the kill action
+    def kill_action(icon, item):
+        icon.stop()
+        os.kill(os.getpid(), 9)
+        return 0
+    # Create a function to build the system tray menu
+    def build_menu():
+        menu = (
+            item('Close', kill_action),
+        )
+        return menu
+    # Load the application icon
+    icon_path = 'icon64.ico'
+    icon_image = Image.open(icon_path)
+
+    # Create the system tray icon
+    icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
+    icon.run()
+    
 def show_notification(title, message):
     toaster = ToastNotifier()
     toaster.show_toast(title, message, duration=2)
@@ -25,11 +66,11 @@ class FileChangeHandler(FileSystemEventHandler):
             # print(f'Modified file: {event.src_path}')
             if os.path.commonpath([self.mod_unpack_path]) == self.mod_unpack_path:
                 # Example usage
-                show_notification("Mod is being updated...")
+                # rate_limiter.notify('Pak Tools', 'Mod is being updated...')
                 update_archive(self.mod_unpack_path, self.mod_pak)
                 if self.copy_to:
                     update_archive(self.mod_unpack_path, self.copy_to)
-                show_notification("Changes saved!")
+                rate_limiter.notify(title='Pak Tools', message='Changes saved!')
 
 def read_config():
     config = configparser.ConfigParser()
@@ -163,7 +204,11 @@ def main():
             print('Program did the bad!')
 
     print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
-    
+    # Create the system tray icon
+    tray = threading.Thread(target=tray_thread)
+    tray.daemon = True  # Allow the program to exit even if the thread is running
+    tray.start()
+
     meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path)
     meld_handler.handle()
 
