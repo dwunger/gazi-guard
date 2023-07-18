@@ -6,13 +6,14 @@ import time
 from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation, prompt_enter_config
 from file_system import *
 import glob
-import window
+# import views
 from win10toast import ToastNotifier
 import pystray
 from PIL import Image
 from pystray import MenuItem as item
 import threading
 from plyer import notification
+import sys
 
 class RateLimitedNotifier:
     def __init__(self, min_interval=5):  # interval in seconds
@@ -38,7 +39,7 @@ class FileChangeHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if not event.is_directory:
             # Check if the modified file is in the mod_unpack_path
-            print('Change detected! Do not exit while saving...')
+            #print('Change detected! Do not exit while saving...')
             # print(f'Modified file: {event.src_path}')
             if os.path.commonpath([self.mod_unpack_path]) == self.mod_unpack_path:
                 # Example usage
@@ -81,7 +82,7 @@ class MeldHandler:
                 wait_for_meld_installation()
             try:
                 self.meld_process = launch_meld(meld_path, self.mod_unpack_path, self.merged_unpack_path)
-                print("Launching Meld for review...")
+                # print("Launching Meld for review...")
             except FileNotFoundError:
                 print('\nMeld does not appear in PATH or specified path is incorrect. Please install from \
                     https://meldmerge.org/ or specify the correct path in the config.ini file.')
@@ -146,11 +147,13 @@ def tray_thread():
     def prefs():
         # Start the GUI thread
         if prompt_enter_config(): #-> boolready to enter config bool
-            gui_thread = window.GuiThread()
-            gui_thread.start()
-
+            # gui_thread = window.GuiThread() #is now view.py
+            # gui_thread.start()
+            # no longer launching from backend
+            pass
     # Create a function to handle the kill action
     def kill_action(icon, item):
+        # backend should run independently from frontend. This gives a hand should user decide not to use views.py
         icon.stop()
         os.kill(os.getpid(), 9)
         return 0
@@ -173,12 +176,14 @@ def set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_
         try:
             set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
         except Exception as e:
-                print('Program did the bad!')
+                #print('Program did the bad!')
+                pass
     else:
         try:
             remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
         except Exception as e:
-            print('Program did the bad!')
+            #print('Program did the bad!')
+            pass
             
 def initialize_workspace():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
@@ -207,34 +212,76 @@ def initialize_workspace():
     prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_default)
     
     set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path)
-    print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
+    #print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
+    # print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts > {mod_unpack_path}\nUnpacked source scripts > {merged_unpack_path}\n")
     return (mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak)
+
+class BackendListener:
+    def __init__(self):
+        self.running = False
+        self.listener_thread = None
+
+    def start(self):
+        self.running = True
+        self.listener_thread = threading.Thread(target=self._listen)
+        self.listener_thread.daemon = True
+        self.listener_thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.listener_thread is not None:
+            self.listener_thread.join()
+
+    def _listen(self):
+        while self.running:
+            # Receive messages from the frontend
+            message = sys.stdin.readline().strip()
+            if not message:
+                break
+
+            # Process the received message
+            response = self.process_message(message)
+
+            # Send the response back to the frontend
+            self.send_response(response)
+
+    def process_message(self, message):
+        # Add your custom logic here based on the received message
+        if message == "Initialized":
+            time.sleep(4)
+            return "sync"
+
+    def send_response(self, response):
+        # Send the response back to the frontend
+        print(response, flush=True)
+        # sys.stdout.flush()
+        # sys.stderr.flush()
 
 def main():
     mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak = initialize_workspace()
-
 
     # Create the system tray icon
     tray = threading.Thread(target=tray_thread)
     tray.daemon = True  # Allow the program to exit even if the thread is running
     tray.start()
 
-    meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path)
+    meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path) #abs path, abs path, bool, config path
     meld_handler.handle()
 
     observer_handler = ObserverHandler(mod_unpack_path, mod_pak, copy_to)
     observer_handler.start()
-
+    
     try:
         while meld_handler.poll() is None:
             time.sleep(1)
     finally:
         observer_handler.stop()
 
-    print('Meld process has exited. Exiting script...')
+    # print('Meld process has exited. Exiting script...')
 
 
 if __name__ == '__main__':
-
+    listener = BackendListener()
+    listener.start()
     # Run the main program
     main()
