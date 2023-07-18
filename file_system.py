@@ -24,18 +24,21 @@ def set_folder_hidden(folder_path):
             import win32api, win32con
             FILE_ATTRIBUTE_HIDDEN = 0x02
             win32api.SetFileAttributes(folder_path, FILE_ATTRIBUTE_HIDDEN)
-            print(f"The folder '{folder_path}' is now hidden.")
+            #print(f"The folder '{folder_path}' is now hidden.")
         except ImportError:
-            print("win32api and win32con modules are required on Windows.")
+            #print("win32api and win32con modules are required on Windows.")
+            pass
     else:
         try:
             # For Linux/Mac
             os.chflags(folder_path, os.stat(folder_path).st_flags | stat.UF_HIDDEN)
-            print(f"The folder '{folder_path}' is now hidden.")
+            #print(f"The folder '{folder_path}' is now hidden.")
         except AttributeError:
-            print("os.chflags is not supported on this platform.")
+            #print("os.chflags is not supported on this platform.")
+            pass
         except OSError as e:
-            print(f"Error occurred: {e}")
+            #print(f"Error occurred: {e}")
+            pass
 
 def set_folders_hidden(paths):
     for path in paths:
@@ -48,9 +51,10 @@ def remove_hidden_attribute(folder_path):
             import win32api, win32con
             FILE_ATTRIBUTE_HIDDEN = 0x02
             win32api.SetFileAttributes(folder_path, win32con.FILE_ATTRIBUTE_NORMAL)
-            print(f"The hidden attribute has been removed from the folder '{folder_path}'.")
+            #print(f"The hidden attribute has been removed from the folder '{folder_path}'.")
         except ImportError:
-            print("win32api and win32con modules are required on Windows.")
+            #print("win32api and win32con modules are required on Windows.")
+            pass
     else:
         try:
             # For Linux/Mac
@@ -58,13 +62,16 @@ def remove_hidden_attribute(folder_path):
             if flags & stat.UF_HIDDEN:
                 flags &= ~stat.UF_HIDDEN
                 os.chflags(folder_path, flags)
-                print(f"The hidden attribute has been removed from the folder '{folder_path}'.")
+                #print(f"The hidden attribute has been removed from the folder '{folder_path}'.")
             else:
-                print(f"The folder '{folder_path}' is not hidden.")
+                #print(f"The folder '{folder_path}' is not hidden.")
+                pass
         except AttributeError:
-            print("os.chflags is not supported on this platform.")
+            #print("os.chflags is not supported on this platform.")
+            pass
         except OSError as e:
-            print(f"Error occurred: {e}")
+            #print(f"Error occurred: {e}")
+            pass
 
 def remove_hidden_attributes(paths):
     for path in paths:
@@ -102,13 +109,13 @@ def prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_d
     #TODO: Clean this up
     with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
         if os.path.exists(mod_unpack_path) and directory_matches_zip(mod_unpack_path, mod_zip):
-            print("The mod scripts are already extracted.")
+            #print("The mod scripts are already extracted.")
             if deep_scan_enabled == True:
                 mod_zip.extractall('temp')
                 if are_dirs_identical('temp', mod_unpack_path):
-                    print('Changes were detected!')
+                    #print('Changes were detected!')
                     if overwrite_default != True:
-                        print("Exiting without overwriting.")
+                        #print("Exiting without overwriting.")
                         return
                     if os.path.exists(mod_unpack_path):
                         shutil.rmtree(mod_unpack_path)
@@ -118,7 +125,7 @@ def prompt_to_overwrite(mod_pak, mod_unpack_path, deep_scan_enabled, overwrite_d
             # if os.path.exists(mod_unpack_path):
             #     overwrite = input(f"{mod_unpack_path} already exists. Overwrite? (y/n) ")
             if overwrite_default == False:
-                print("Exiting without overwriting.")
+                #print("Exiting without overwriting.")
                 return
             if os.path.exists(mod_unpack_path):
                 shutil.rmtree(mod_unpack_path)
@@ -176,11 +183,12 @@ def increment_path(base_path):
         count += 1
 
 def choose_mod_pak(mod_pak, target_workspace):
-    print (mod_pak)
+    #print (mod_pak)
     if not os.path.exists(mod_pak):
         dir_list = [f for f in os.listdir(target_workspace) if f.endswith('.pak')]
         for idx, file in enumerate(dir_list):
-            print(f'{idx} : {file}')
+            #print(f'{idx} : {file}')
+            pass
         mod_idx = input("Enter mod archive index: ")
         mod_pak = dir_list[int(mod_idx)]
         mod_pak = os.path.join(target_workspace, mod_pak) 
@@ -193,8 +201,8 @@ def extract_source_scripts(source_archive, mod_file_names, destination):
     #pass source_pak_0 and source_pak_1
     with zipfile.ZipFile(source_archive, 'r') as zip_ref:
         table = set(zip_ref.namelist())
-        print(zip_ref.namelist()[0:10])
-        print(mod_file_names[0:10])
+        #print(zip_ref.namelist()[0:10])
+        #print(mod_file_names[0:10])
         for file in mod_file_names:
             if file in table:
                 zip_ref.extract(file, path=destination)
