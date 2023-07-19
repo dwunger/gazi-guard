@@ -4,3 +4,4 @@ __pycache__/
 FlatMetal.qtcurve
 threadtest.py
 DemoAppUi.py
+*.log
