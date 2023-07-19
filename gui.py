@@ -50,6 +50,7 @@ class CustomTitleBar(QtWidgets.QWidget):
         self.closeButton.setFixedSize(30, 30)
         self.closeButton.clicked.connect(self.onCloseClicked)  
         
+        self.startPosition = None #Dealing with AttributeError: 'CustomTitleBar' object has no attribute 'startPosition'
         # Create a common style sheet for the buttons
         buttonStyle = """
             QPushButton {
@@ -92,7 +93,7 @@ class CustomTitleBar(QtWidgets.QWidget):
 
     def mouseMoveEvent(self, event):
         if self.startPosition is None:
-            return  # Skip the event if startPosition is not available
+            return  #Dealing with AttributeError: 'CustomTitleBar' object has no attribute 'startPosition'
 
         movePosition = self.mapToGlobal(event.pos())
         diff = movePosition - self.startPosition
@@ -112,6 +113,7 @@ class CustomTitleBar(QtWidgets.QWidget):
             self.parent().close()
 #TODO: restart main proc on settings update
 #TODO: remove unused file methods
+#TODO: gracefully close editor with request and wait for confirmation
 # class OptionsDialog(QtWidgets.QDialog):
 #     def __init__(self, parent=None):
 #         super().__init__(parent)
@@ -139,7 +141,7 @@ class CustomTitleBar(QtWidgets.QWidget):
 
 #         self.setStyleSheet(parent.styleSheet())  # Inherit the style from parent
 
-
+#TODO: create prompt at start of update method then restart background proc
 class OptionsDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -162,7 +164,7 @@ class OptionsDialog(QtWidgets.QDialog):
 
         # Create the layout for the dialog
         self.layout = QtWidgets.QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        self.layout.setContentsMargins(2, 0, 2, 2)  # Remove margins
         self.layout.addWidget(titleBar)
         self.layout.addWidget(self.keepOnTopButton)
 
@@ -176,7 +178,6 @@ class OptionsDialog(QtWidgets.QDialog):
         # Generate form fields for each setting
         tooltips = {
             'target_workspace': 'Folder containing source \nmaterials: source_pak_0, source_pak_1, \nand mod_pak',
-            'copy_to': 'Manages copy of repacked mod at path\n (no official support).',
             'deep_scan': 'Compares files line-wise for \nchanges.',
             'source_pak_0': 'Name of data0.pak (source archive\n containing original scripts).',
             'source_pak_1': 'Name of data1.pak (source archive\n containing original scripts).',
@@ -190,26 +191,61 @@ class OptionsDialog(QtWidgets.QDialog):
         }
 
         for setting in self.config.properties:
-            if setting == 'copy_to':  
+            if setting == 'copy_to': 
                 continue
+            if setting not in ['deep_scan', 'overwrite_default','hide_unpacked_content', 'use_meld', 'backup_enabled']:
+                # Create QLabel for each setting
+                label = QtWidgets.QLabel(setting.replace('_', ' ').title(), self)
+                label.setAlignment(QtCore.Qt.AlignLeft)
+                self.layout.addWidget(label)
 
             if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
                 field = QtWidgets.QCheckBox(setting.replace('_', ' ').title(), self)
                 field.setChecked(getattr(self.config, setting))
+            elif setting in ['source_pak_0', 'source_pak_1', 'mod_pak']:
+                field = QtWidgets.QComboBox()
+                field.addItems([file for file in os.listdir(self.config.target_workspace) if file.endswith(".pak")])
+                field.setCurrentText(str(getattr(self.config, setting)))
             else:
                 field = QtWidgets.QLineEdit(self)
                 field.setText(str(getattr(self.config, setting)))
 
-            field.setToolTip(tooltips.get(setting, ""))  
+            field.setToolTip(tooltips.get(setting, ""))  # Set tooltip
             setattr(self, f'{setting}_field', field)
-            self.layout.addWidget(field)
+            horz_layout = QtWidgets.QHBoxLayout()
+            horz_layout.addSpacing(10)
+            horz_layout.addWidget(field)
+            self.layout.addLayout(horz_layout)
+
+            # field.setStyleSheet('''padding: 4px;
+            #                     margin: 4px;
+            #                     ''')
 
         # Add an 'Apply' button to the form to update settings values
         self.apply_button = QtWidgets.QPushButton("Apply", self)
+        self.apply_button.setFixedWidth(100)  # Set a fixed width of 100 pixels
         self.apply_button.clicked.connect(self.update_settings)
-        self.layout.addWidget(self.apply_button)
 
-        self.setLayout(self.layout)
+        # Create a horizontal layout for the apply button
+        button_layout = QtWidgets.QHBoxLayout()
+
+        # Add the apply button to the layout
+        button_layout.addWidget(self.apply_button)
+
+        # Add spacing on the right side
+        button_layout.addSpacing(10)  # Adjust the spacing value as needed
+
+        # Create a vertical layout for the main content
+        content_layout = QtWidgets.QVBoxLayout()
+
+        # Add the button layout to the content layout
+        content_layout.addLayout(button_layout)
+
+        # Add spacing at the bottom
+        content_layout.addSpacing(10)  # Adjust the spacing value as needed
+
+        # Add the content layout to the main layout
+        self.layout.addLayout(content_layout)
 
 
     def update_settings(self):
@@ -218,12 +254,15 @@ class OptionsDialog(QtWidgets.QDialog):
             field = getattr(self, f'{setting}_field')
             if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
                 setattr(self.config, setting, field.isChecked())
-            else:
+            elif isinstance(field, QtWidgets.QLineEdit):
                 setattr(self.config, setting, field.text())
+            elif isinstance(field, QtWidgets.QComboBox):
+                setattr(self.config, setting, field.currentText())
 
         # Save updated settings to the config.ini file
         with open(self.config.config_path, 'w') as configfile:
             self.config.config_parser.write(configfile)
+        self.close()
 
     def onKeepOnTopToggled(self, checked):
         if checked:
@@ -233,14 +272,6 @@ class OptionsDialog(QtWidgets.QDialog):
         self.parent().setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowTitleHint | self.originalFlags)  # Restore the original window flags
         self.parent().show()
 
-
-    def onKeepOnTopToggled(self, checked):
-        if checked:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-        else:
-            self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
-        self.parent().setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowTitleHint | self.originalFlags)  # Restore the original window flags
-        self.parent().show()
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, backend_script):
@@ -256,7 +287,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setupUI(self):
         self.setWindowTitle("Pak Tools")
-        self.resize(400, 200)  # Set the initial size of the window
+        self.resize(400, 150)  # Set the initial size of the window
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
 
         self.createTitleBar()
@@ -283,12 +314,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def createFileMenuButton(self, toolbar):
         menu = QtWidgets.QMenu(self)
 
-        action1 = QtWidgets.QAction("Open...", self)
-        # action1.triggered.connect(self.openFileDialog)
-        menu.addAction(action1)
+        # action1 = QtWidgets.QAction("Open...", self)
+        # # action1.triggered.connect(self.openFileDialog)
+        # menu.addAction(action1)
 
-        action2 = QtWidgets.QAction("Hide", self)
-        menu.addAction(action2)
+        # action2 = QtWidgets.QAction("Hide", self)
+        # menu.addAction(action2)
 
         action3 = QtWidgets.QAction("Options...", self)
         action3.triggered.connect(self.openOptionsDialog)
@@ -371,8 +402,8 @@ class MainWindow(QtWidgets.QMainWindow):
         print(data)
         lines = data.split('\n')
         messages = [line.lstrip('*') for line in lines if line.startswith('*')]
-        logger_iter(lines)
-        logger_iter(messages)
+        # logger_iter(lines)
+        # logger_iter(messages)
         return messages
     
     def onListenMain(self):
