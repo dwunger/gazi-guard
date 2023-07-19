@@ -159,7 +159,7 @@ class CommsManager():
             # Receive messages from the frontend
             stdin = sys.stdin.readline().strip()
             stdin = [line.strip('*') for line in stdin.split('\n') if line.startswith('*')]
-            logger_iter(stdin)
+            # logger_iter(stdin)
             for line in stdin:
                 # Process the received message
                 response = self.process_message(line)
