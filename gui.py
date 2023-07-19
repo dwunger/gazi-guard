@@ -1,11 +1,15 @@
+import os
 import sys
 import threading
-from PyQt5 import QtWidgets, QtCore
+
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QProcess
-from led_indicator_widget import LedIndicator
+
 from abstract_message import AbstractMessage
-import os
 from configs import Config
+from led_indicator_widget import LedIndicator
+from melder import prompt_to_restart
+
 # import DemoAppUi
 def get_int_date():
     import datetime
@@ -249,6 +253,11 @@ class OptionsDialog(QtWidgets.QDialog):
 
 
     def update_settings(self):
+        response = prompt_to_restart()
+        print(response)
+        if response == False:
+            return
+        
         # Update settings values when 'Apply' button is clicked
         for setting in self.config.properties:
             field = getattr(self, f'{setting}_field')
@@ -262,7 +271,12 @@ class OptionsDialog(QtWidgets.QDialog):
         # Save updated settings to the config.ini file
         with open(self.config.config_path, 'w') as configfile:
             self.config.config_parser.write(configfile)
+        parent = self.parent()
+        parent.backend_process.kill()
+        parent.backend_process = None
+        parent.init_main_proc()
         self.close()
+        
 
     def onKeepOnTopToggled(self, checked):
         if checked:
@@ -424,7 +438,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.child_pid = int(payload)
             return self.message.pid(os.getpid())
         if payload_type == 'editor_pid':
-            self.editor_pid = int(payload)            
+            self.editor_pid = int(payload)           
+        if payload_type == 'set':
+            if payload == 'sync':
+                self.led.setChecked(True)
+            elif payload == 'desync':
+                self.led.setChecked(False)
+            self.led.update() 
             
     def exit_all(self):
         processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
@@ -433,8 +453,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def onExitMain(self, exit_code, exit_status):
         # Called when the backend process has finished
+        os.kill(self.editor_pid, 9)
         print(f"Backend process finished with exit code {exit_code}")
-        os.kill(self.pid, 9)
+        # os.kill(self.pid, 9)
         
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
