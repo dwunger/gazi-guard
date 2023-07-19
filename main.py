@@ -151,7 +151,7 @@ class CommsManager():
         self.running = True
         self.listener_thread = threading.Thread(target=self._listen)
         self.listener_thread.daemon = True
-        self.listener_thread.listen()
+        self.listener_thread.start()
 
     def stop(self):
         self.running = False
