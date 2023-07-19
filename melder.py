@@ -47,6 +47,14 @@ def prompt_delete_backups(message):
     response = messagebox.askquestion("Unexpected Backups Found", message, type = messagebox.YESNO)
     
     return response
+
+def prompt_to_restart():
+    root = tk.Tk()
+    root.withdraw()
+    response = messagebox.askokcancel("Restarting Background Process and Meld", 'Please save any changes before pressing continue')
+    
+    return response
+
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
     return subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
