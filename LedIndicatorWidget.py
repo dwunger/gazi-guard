@@ -13,8 +13,8 @@ class LedIndicator(QAbstractButton):
         self.setCheckable(True)
         self.on_color_1 = QColor(0, 255, 0)
         self.on_color_2 = QColor(0, 192, 0)
-        self.off_color_1 = QColor(255, 0, 0)
-        self.off_color_2 = QColor(192, 0, 0)
+        self.off_color_1 = QColor(255,77,0)
+        self.off_color_2 = QColor(255,154,0)
 
     def resizeEvent(self, event):
         self.update()
@@ -23,13 +23,13 @@ class LedIndicator(QAbstractButton):
         realSize = min(self.width(), self.height())
 
         painter = QPainter(self)
-        pen = QPen(Qt.black)
+        pen = QPen(Qt.white)
         pen.setWidth(1)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.translate(self.width() / 2, self.height() / 2)
         painter.scale(realSize / self.scaledSize, realSize / self.scaledSize)
 
-        self.drawBackground(painter, pen)
+        # self.drawBackground(painter, pen)
         self.drawIndicator(painter, pen)
 
     def drawBackground(self, painter, pen):
