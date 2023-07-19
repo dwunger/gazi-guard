@@ -2,6 +2,7 @@ import os
 import glob
 import zipfile
 import time
+from melder import prompt_delete_backups
 class BackupHandler:
     def __init__(self, backup_path, backup_count, mod_pak):
         self.backup_path = backup_path
@@ -25,9 +26,12 @@ class BackupHandler:
         #block if deleting more than one backup
         files_to_delete = len(all_backups) - self.backup_count 
         if files_to_delete > 1:
-            delete_choice = input(f"{files_to_delete} backups were found! Only {self.backup_count} were expected. Delete oldest \nDelete {self.backup_count - files_to_delete} oldest backups? y/n")
-            if delete_choice != 'y':
+            # delete_choice = input(f"{files_to_delete} backups were found! Only {self.backup_count} were expected. Delete oldest \nDelete {files_to_delete} oldest backups? y/n")
+            message = f"{files_to_delete} backups were found! Only {self.backup_count} were expected. Delete oldest \nDelete {files_to_delete} oldest backups? y/n"
+            delete_choice = prompt_delete_backups(message)
+            if delete_choice.lower() != 'yes':
                 return
+
 
         # If the number of backups exceeds the maximum allowed count
         while len(all_backups) > self.backup_count:

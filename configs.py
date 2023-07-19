@@ -1,18 +1,19 @@
 import configparser
 class Config:
-    docs = '''\n\n; NOTES
-; Overwrite: 
-; Context - Tool does not manage cache states between sessions.
-; Situation - If changes are made to unpacked files while tool is closed, how should these changes be handled 
-; next time this tool runs:
-;
-;   - true:  mod_pak (dataX.pak) is the master copy of the mod. Untracked changes to the 
-;            unpacked mod directory will be overwritten.
-;   - false: The unpacked mod is the master copy. Untracked changes to mod_pak (dataX.pak) 
-;            will be overwritten
-; Hide: 
-; The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
-'''    
+    docs = 'Note'
+#     docs = '''\n\n; NOTES
+# ; Overwrite: 
+# ; Context - Tool does not manage cache states between sessions.
+# ; Situation - If changes are made to unpacked files while tool is closed, how should these changes be handled 
+# ; next time this tool runs:
+# ;
+# ;   - true:  mod_pak (dataX.pak) is the master copy of the mod. Untracked changes to the 
+# ;            unpacked mod directory will be overwritten.
+# ;   - false: The unpacked mod is the master copy. Untracked changes to mod_pak (dataX.pak) 
+# ;            will be overwritten
+# ; Hide: 
+# ; The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
+# '''    
     def __init__(self):
         self.config_path = 'config.ini'
         self.config_parser = configparser.ConfigParser()
@@ -20,7 +21,7 @@ class Config:
         # self.properties = [attr for attr in vars(self) if isinstance(getattr(self, attr), property)]
         # Couldn't get this to work. Do not use as it may not be up to date:
         self.properties = [
-            'target_workspace', 'copy_to', 'deep_scan', 'source_pak_0', 'source_pak_1',
+            'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
             'use_meld', 'backup_enabled', 'backup_count'
         ]
