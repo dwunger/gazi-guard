@@ -7,6 +7,17 @@ import py7zr
 import zipfile
 import tempfile
 import shutil
+import ctypes
+def bring_window_to_front_by_pid(pid):
+    try:
+        # Find the window handle using the process ID
+        hwnd = ctypes.windll.user32.FindWindowW(None, None)  # You can provide a window title or class name if available
+
+        # Bring the window to the front
+        if hwnd:
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+    except Exception as e:
+        print(f"Failed to bring window to front: {e}")
 
 def update_archive(source_path, target_path):
     with zipfile.ZipFile(target_path, 'w') as zipf:
@@ -207,3 +218,14 @@ def extract_source_scripts(source_archive, mod_file_names, destination):
             if file in table:
                 zip_ref.extract(file, path=destination)
             
+def set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path):
+    if hide_unpacked_content:
+        try:
+            set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+            print('An error occurred while setting folders hidden:', str(e))
+    else:
+        try:
+            remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
+        except Exception as e:
+            print('An error occurred while removing hidden attributes:', str(e))
