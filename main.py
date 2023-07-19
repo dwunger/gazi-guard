@@ -18,8 +18,11 @@ from melder import (MeldHandler, get_meld_path, launch_meld,
                     prompt_enter_config, prompt_install_meld,
                     wait_for_meld_installation)
 from notifs import RateLimitedNotifier, show_notification
-#BUG (sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 
+#BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
+#!QUIRK: App tray icon managed from main.py as separate process from GUI process
+#!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
+#TODO: Update status of repack in GUI
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
         self.mod_unpack_path = mod_unpack_path
@@ -112,34 +115,27 @@ def initialize_workspace():
     #print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts → {mod_unpack_path}\nUnpacked source scripts → {merged_unpack_path}\n")
     # print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts > {mod_unpack_path}\nUnpacked source scripts > {merged_unpack_path}\n")
     return (mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak)
+def get_int_date():
+    import datetime
+    current_date = datetime.datetime.now()
+    return current_date.strftime("%Y-%m-%d")
+run_number = get_int_date()
 
-class AbstractMessage:
-    def construct_message(self, message_type, message):
-        return f"{message_type}:{message}"
-
-    def request(self, message):
-        return self.construct_message('request', str(message))
-
-    def error(self, message):
-        return self.construct_message('error', str(message))
-
-    def data(self, message):
-        return self.construct_message('data', str(message))
-
-    def response(self, message):
-        return self.construct_message('response', str(message))
-
-    def event(self, message):
-        return self.construct_message('event', str(message))
-
-    def log(self, message):
-        return self.construct_message('log', str(message))
-
-    def set(self, message):
-        return self.construct_message('set', str(message))
-    
-    def pid(self, message):
-        return self.construct_message('pid', str(message))
+log_file = f"LOG_{run_number}.log"
+if os.path.exists(log_file):
+    os.remove(log_file)
+def logger_iter(iterable):
+    with open(log_file, 'a+') as log:
+        log.write('#######MAIN_START_MESSAGE########\n')
+        log.write('iterable: \n')
+        log.writelines(iterable)
+        log.write('\n')
+        log.write('#######MAIN_END_MESSAGE########\n')
+def logger_str(text):
+    with open(log_file, 'a+') as log:
+        log.write('#######MAIN_START_MESSAGE########\n')
+        log.write(text + "\n")
+        log.write('#######MAIN_END_MESSAGE########\n')
 class CommsManager():
     def __init__(self):
         self.running = False
@@ -162,33 +158,35 @@ class CommsManager():
         while self.running:
             # Receive messages from the frontend
             stdin = sys.stdin.readline().strip()
-            stdin = [line for line in stdin.split('\n') if line.startswith('*')]
-
-            if stdin:
+            stdin = [line.strip('*') for line in stdin.split('\n') if line.startswith('*')]
+            logger_iter(stdin)
+            for line in stdin:
                 # Process the received message
-                response = self.process_message(stdin)
+                response = self.process_message(line)
                 # Send the response back to the frontend
-                self.send_response(response)
+                self.send_message(response)
             
     def process_message(self, data):
         # Add your custom logic here based on the received message
-        
+   
         payload_type, payload = data.split(":")
         
         return self.get_response(payload_type, payload)
 
-    def send_response(self, response):
+    def send_message(self, response):
         # Send the response back to the frontend
+        
         print(response, flush=True)
         sys.stdout.flush()
         sys.stderr.flush()
+
         
     def get_response(self, payload_type, payload):
         #map message type and payload to a response for return value
         #start with exhaustive switching
-        if payload_type == 'event':
-            if payload == 'initialized':
-                return self.message.pid(str(sys.getpid))
+        if payload_type == 'request':
+            if payload == 'pid':
+                return self.message.pid(os.getpid())
             
 
 def main():
@@ -201,6 +199,8 @@ def main():
 
     meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path) #abs path, abs path, bool, config path
     meld_handler.handle()
+    meld_pid = int(meld_handler.meld_process.pid)
+    comms.send_message(comms.message.edior_pid(meld_pid))
 
     observer_handler = ObserverHandler(mod_unpack_path, mod_pak, copy_to)
     observer_handler.start()
@@ -213,9 +213,8 @@ def main():
 
     # print('Meld process has exited. Exiting script...')
 
-
 if __name__ == '__main__':
-    listener = CommsManager()
-    listener.listen()
+    comms = CommsManager()
+    comms.listen()
     # Run the main program
     main()

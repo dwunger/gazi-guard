@@ -2,11 +2,29 @@ import sys
 import threading
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QProcess
-from LedIndicatorWidget import *
+from led_indicator_widget import LedIndicator
+from abstract_message import AbstractMessage
 import os
+from configs import Config
 # import DemoAppUi
-
-
+def get_int_date():
+    import datetime
+    current_date = datetime.datetime.now()
+    return current_date.strftime("%Y-%m-%d")
+run_number = get_int_date()
+log_file = f"LOG_{run_number}.log"
+def logger_iter(iterable):
+    with open(log_file, 'a+') as log:
+        log.write('#######GUI_START_MESSAGE########\n')
+        log.write('iterable: \n')
+        log.writelines(iterable)
+        log.write('\n')
+        log.write('#######GUI_END_MESSAGE########\n')
+def logger_str(text):
+    with open(log_file, 'a+') as log:
+        log.write('#######GUI_START_MESSAGE########\n')
+        log.write(text + "\n")
+        log.write('#######GUI_END_MESSAGE########\n')
 
 class CustomTitleBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -87,11 +105,47 @@ class CustomTitleBar(QtWidgets.QWidget):
 
     def onCloseClicked(self):
         # Handle close button click
-        self.parent().close()
+        try:
+            parent = self.parent()
+            parent.exit_all()
+        except:
+            self.parent().close()
+#TODO: restart main proc on settings update
+#TODO: remove unused file methods
+# class OptionsDialog(QtWidgets.QDialog):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+
+#         self.originalFlags = self.parent().windowFlags()  # Store the original window flags
+
+#         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
+#         self.setWindowTitle("Options")
+#         self.setStyleSheet("QDialog { border: none; }")  # Remove the border using style sheet
+
+#         # Create a custom title bar
+#         titleBar = CustomTitleBar(self)
+
+#         # Create the 'Keep on top' toggle button
+#         self.keepOnTopButton = QtWidgets.QCheckBox("Keep on top", self)
+#         self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
+
+#         # Create the layout for the dialog
+#         layout = QtWidgets.QVBoxLayout(self)
+#         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+#         layout.addWidget(titleBar)
+#         layout.addWidget(self.keepOnTopButton)
+#         # layout.addStretch()
+#         self.setLayout(layout)
+
+#         self.setStyleSheet(parent.styleSheet())  # Inherit the style from parent
+
 
 class OptionsDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        self.config = Config()  # Initialize config
+        self.setMinimumWidth(500)  # Replace '500' with your desired minimum width.
 
         self.originalFlags = self.parent().windowFlags()  # Store the original window flags
 
@@ -107,14 +161,77 @@ class OptionsDialog(QtWidgets.QDialog):
         self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
 
         # Create the layout for the dialog
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-        layout.addWidget(titleBar)
-        layout.addWidget(self.keepOnTopButton)
-        # layout.addStretch()
-        self.setLayout(layout)
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        self.layout.addWidget(titleBar)
+        self.layout.addWidget(self.keepOnTopButton)
 
-        self.setStyleSheet(parent.styleSheet())  # Inherit the style from parent
+        # Initialize and display settings fields
+        self.add_settings_fields()
+
+        # Inherit the style from parent
+        self.setStyleSheet(parent.styleSheet())
+
+    def add_settings_fields(self):
+        # Generate form fields for each setting
+        tooltips = {
+            'target_workspace': 'Folder containing source \nmaterials: source_pak_0, source_pak_1, \nand mod_pak',
+            'copy_to': 'Manages copy of repacked mod at path\n (no official support).',
+            'deep_scan': 'Compares files line-wise for \nchanges.',
+            'source_pak_0': 'Name of data0.pak (source archive\n containing original scripts).',
+            'source_pak_1': 'Name of data1.pak (source archive\n containing original scripts).',
+            'mod_pak': 'Name of dataX.pak (mod archive containing\n mod\'s scripts).',
+            'overwrite_default': 'If true: mod_pak overwrites changes to unpacked archive on new load \nof this tool. If false: unpacked \narchive overwrites changes to mod_pak on \nnew load of this tool.',
+            'hide_unpacked_content': 'Set OS hidden flag to \nunpacked directory.',
+            'meld_config_path': 'Path to Meld.exe as per config.ini.\n Falls back to None which scans \npath and again falls back to call \ninstaller for Meld.',
+            'use_meld': 'Launch Meld editor after unpacking mod\n and source scripts.',
+            'backup_enabled': 'Create backup of mod_pak (mod scripts)\n on startup.',
+            'backup_count': 'Number of rolling backups for backup \nmanager to retain.',
+        }
+
+        for setting in self.config.properties:
+            if setting == 'copy_to':  
+                continue
+
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+                field = QtWidgets.QCheckBox(setting.replace('_', ' ').title(), self)
+                field.setChecked(getattr(self.config, setting))
+            else:
+                field = QtWidgets.QLineEdit(self)
+                field.setText(str(getattr(self.config, setting)))
+
+            field.setToolTip(tooltips.get(setting, ""))  
+            setattr(self, f'{setting}_field', field)
+            self.layout.addWidget(field)
+
+        # Add an 'Apply' button to the form to update settings values
+        self.apply_button = QtWidgets.QPushButton("Apply", self)
+        self.apply_button.clicked.connect(self.update_settings)
+        self.layout.addWidget(self.apply_button)
+
+        self.setLayout(self.layout)
+
+
+    def update_settings(self):
+        # Update settings values when 'Apply' button is clicked
+        for setting in self.config.properties:
+            field = getattr(self, f'{setting}_field')
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+                setattr(self.config, setting, field.isChecked())
+            else:
+                setattr(self.config, setting, field.text())
+
+        # Save updated settings to the config.ini file
+        with open(self.config.config_path, 'w') as configfile:
+            self.config.config_parser.write(configfile)
+
+    def onKeepOnTopToggled(self, checked):
+        if checked:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
+        self.parent().setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowTitleHint | self.originalFlags)  # Restore the original window flags
+        self.parent().show()
 
 
     def onKeepOnTopToggled(self, checked):
@@ -128,42 +245,44 @@ class OptionsDialog(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, backend_script):
         super().__init__()
-        self.backend_script = backend_script
-        self.backend_process = None  # Initialize the backend_process here
 
+        self.backend_script = backend_script
+        self.backend_process = None
+        self.message = AbstractMessage()  # Initialize message here
+        self.pid = os.getpid()
+        self.child_pid = None
+        self.editor_pid = None
+        self.setupUI()
+
+    def setupUI(self):
         self.setWindowTitle("Pak Tools")
         self.resize(400, 200)  # Set the initial size of the window
+        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
 
-        # Remove the native window frame
-        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+        self.createTitleBar()
+        self.createToolbar()
+        self.createLEDLayout()
 
-        # Create a custom title bar
+    def createTitleBar(self):
         titleBar = CustomTitleBar(self)
         self.setMenuWidget(titleBar)
 
-        # Create a toolbar
+    def createToolbar(self):
         toolbar = QtWidgets.QToolBar(self)
         toolbar.setMovable(False)  # Disable toolbar movement
         self.addToolBar(toolbar)
 
-        # Create the layout for the LED
-        layout = QtWidgets.QHBoxLayout()
-        self.led = LedIndicator(self)
-        self.led.setDisabled(True)  # Make the led non-clickable
-        layout.addWidget(self.led)
+        # self.createToggleLEDButton(toolbar)
+        self.createFileMenuButton(toolbar)
 
-        central_widget = QtWidgets.QWidget()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+    # def createToggleLEDButton(self, toolbar):
+    #     self.pushButton = QtWidgets.QPushButton("Toggle LED", self)
+    #     self.pushButton.clicked.connect(self.onPressButton)
+    #     toolbar.addWidget(self.pushButton)
 
-        self.pushButton = QtWidgets.QPushButton("Toggle LED", self)
-        self.pushButton.clicked.connect(self.onPressButton)
-        toolbar.addWidget(self.pushButton)
-
-        # Create a menu
+    def createFileMenuButton(self, toolbar):
         menu = QtWidgets.QMenu(self)
 
-        # Create actions for the menu
         action1 = QtWidgets.QAction("Open...", self)
         # action1.triggered.connect(self.openFileDialog)
         menu.addAction(action1)
@@ -171,22 +290,45 @@ class MainWindow(QtWidgets.QMainWindow):
         action2 = QtWidgets.QAction("Hide", self)
         menu.addAction(action2)
 
-        # Create actions for the menu
         action3 = QtWidgets.QAction("Options...", self)
         action3.triggered.connect(self.openOptionsDialog)
         menu.addAction(action3)
 
-        # Create a button in the toolbar to display the menu
         menu_button = QtWidgets.QToolButton(toolbar)
         menu_button.setStyleSheet("QToolButton::menu-indicator { image: none; }")  # Remove the menu indicator arrow
         menu_button.setMenu(menu)
         menu_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         menu_button.setText("File")
 
-        # Add the button to the toolbar
         toolbar.addWidget(menu_button)
+
+    def createLEDLayout(self):
+        main_layout = QtWidgets.QHBoxLayout()
+
+
+        left_layout = QtWidgets.QHBoxLayout()
+        left_layout.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.led = LedIndicator(self)
+        self.led.setDisabled(True)  # Make the LED non-clickable
+
+        left_layout.addWidget(self.led)
+
+        text_widget = QtWidgets.QLabel("Mod Repack Status")
+        left_layout.addWidget(text_widget)
+
+        main_layout.addLayout(left_layout)
+
+
+        central_widget = QtWidgets.QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+
+
     def onPressButton(self):
         self.led.setChecked(not self.led.isChecked())
+
         
     def openOptionsDialog(self):
         # Temporarily remove the "Keep on top" flag
@@ -204,17 +346,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
             self.show()
             
-    def sendMessageToBackend(self, message):
+    def send_message(self, message):
         if self.backend_process is not None and self.backend_process.state() == QProcess.Running:
             self.backend_process.write(message.encode() + b"\n")
             self.backend_process.waitForBytesWritten()
             
-    def startBackendProcess(self):
+    def init_main_proc(self):
         if self.backend_process is None:
             self.backend_process = QProcess()
             self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
-            self.backend_process.readyRead.connect(self.onReadyRead)
-            self.backend_process.finished.connect(self.onBackendFinished)
+            self.backend_process.readyRead.connect(self.onListenMain)
+            self.backend_process.finished.connect(self.onExitMain)
             self.backend_process.start("python", [self.backend_script])
 
     def stopBackendProcess(self):
@@ -229,37 +371,47 @@ class MainWindow(QtWidgets.QMainWindow):
         print(data)
         lines = data.split('\n')
         messages = [line.lstrip('*') for line in lines if line.startswith('*')]
-        
+        logger_iter(lines)
+        logger_iter(messages)
         return messages
     
-    def onReadyRead(self):
+    def onListenMain(self):
         # Read the data from the stdout and stderr of the process
         raw_data = self.backend_process.readAll().data().decode()
 
         # print(f"Raw data: '{raw_data}'")  # Print raw data
-        messages = self.parse_stream(raw_data)
-        for message in messages:
-            if message == "sync":
-                # Process data
-                self.led.setChecked(True)
-                self.led.update()  # Force the led widget to redraw itself
-            if message == 
-
-
-    def onBackendFinished(self, exit_code, exit_status):
-        # Called when the backend process has finished
+        inbound_messages = self.parse_stream(raw_data)
         
-        print(f"Backend process finished with exit code {exit_code}")
-        os.kill(os.getpid(), 9)
+        for inbound_message in inbound_messages:
+            inbound_message_type, inbound_message = inbound_message.split(':')
+            
+            response = self.get_response(inbound_message_type, inbound_message)
+    def get_response(self, payload_type, payload):
+        #map message type and payload to a response for return value
+        #start with exhaustive switching
+        if payload_type == 'pid':
+            self.child_pid = int(payload)
+            return self.message.pid(os.getpid())
+        if payload_type == 'editor_pid':
+            self.editor_pid = int(payload)            
+            
+    def exit_all(self):
+        processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
+        for process in processes_to_kill:
+            os.kill(process, 9)
 
+    def onExitMain(self, exit_code, exit_status):
+        # Called when the backend process has finished
+        print(f"Backend process finished with exit code {exit_code}")
+        os.kill(self.pid, 9)
+        
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     
     window = MainWindow("main.py")
     window.show()
-    window.startBackendProcess()  # Start the backend process
-    # window.sendMessageToBackend
-    window.sendMessageToBackend("state:ready")
-    window.sendMessageToBackend(f"process:{os.getpid}")
-    
+    window.init_main_proc()  # Start the backend process
+
+    window.send_message(window.message.request('pid'))
+
     sys.exit(app.exec_())
