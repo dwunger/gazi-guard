@@ -216,7 +216,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Add space between the LED and the text widget
         layout.addSpacing(10)
 
-        text_widget = QtWidgets.QLabel("Mod Status")
+        text_widget = QtWidgets.QLabel("Mod Repack Status")
         layout.addWidget(text_widget)
 
         # Vertically center alignment
