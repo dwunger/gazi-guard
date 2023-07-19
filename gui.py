@@ -11,7 +11,7 @@ def get_int_date():
     current_date = datetime.datetime.now()
     return current_date.strftime("%Y-%m-%d")
 run_number = get_int_date()
-log_file = f"LOG_{run_number}.txt"
+log_file = f"LOG_{run_number}.log"
 def logger_iter(iterable):
     with open(log_file, 'a+') as log:
         log.write('#######GUI########\n')

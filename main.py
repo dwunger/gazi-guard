@@ -120,7 +120,7 @@ def get_int_date():
     return current_date.strftime("%Y-%m-%d")
 run_number = get_int_date()
 
-log_file = f"LOG_{run_number}.txt"
+log_file = f"LOG_{run_number}.log"
 if os.path.exists(log_file):
     os.remove(log_file)
 def logger_iter(iterable):
