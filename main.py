@@ -21,7 +21,8 @@ from notifs import RateLimitedNotifier, show_notification
 
 #BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 #!QUIRK: App tray icon managed from main.py as separate process from GUI process
-
+#!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
+#TODO: Update status of repack in GUI
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
         self.mod_unpack_path = mod_unpack_path
@@ -125,18 +126,17 @@ if os.path.exists(log_file):
     os.remove(log_file)
 def logger_iter(iterable):
     with open(log_file, 'a+') as log:
-        log.write('#######MAIN########\n')
+        log.write('#######MAIN_START_MESSAGE########\n')
         log.write('iterable: \n')
         log.writelines(iterable)
         log.write('\n')
-        log.write('#######MAIN########\n')
+        log.write('#######MAIN_END_MESSAGE########\n')
 def logger_str(text):
     with open(log_file, 'a+') as log:
-        log.write('#######MAIN########\n')
+        log.write('#######MAIN_START_MESSAGE########\n')
         log.write(text + "\n")
-        log.write('#######MAIN########\n')
+        log.write('#######MAIN_END_MESSAGE########\n')
 class CommsManager():
-
     def __init__(self):
         self.running = False
         self.listener_thread = None
@@ -164,7 +164,7 @@ class CommsManager():
                 # Process the received message
                 response = self.process_message(line)
                 # Send the response back to the frontend
-                self.send_response(response)
+                self.send_message(response)
             
     def process_message(self, data):
         # Add your custom logic here based on the received message
@@ -173,7 +173,7 @@ class CommsManager():
         
         return self.get_response(payload_type, payload)
 
-    def send_response(self, response):
+    def send_message(self, response):
         # Send the response back to the frontend
         
         print(response, flush=True)
@@ -200,7 +200,7 @@ def main():
     meld_handler = MeldHandler(mod_unpack_path, merged_unpack_path, use_meld, meld_config_path) #abs path, abs path, bool, config path
     meld_handler.handle()
     meld_pid = int(meld_handler.meld_process.pid)
-    listener.send_response(listener.message.edior_pid(meld_pid))
+    comms.send_message(comms.message.edior_pid(meld_pid))
 
     observer_handler = ObserverHandler(mod_unpack_path, mod_pak, copy_to)
     observer_handler.start()
@@ -213,9 +213,8 @@ def main():
 
     # print('Meld process has exited. Exiting script...')
 
-
 if __name__ == '__main__':
-    listener = CommsManager()
-    listener.listen()
+    comms = CommsManager()
+    comms.listen()
     # Run the main program
     main()
