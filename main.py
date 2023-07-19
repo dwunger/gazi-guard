@@ -1,41 +1,31 @@
 import os
-import configparser
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+import sys
+import threading
 import time
-from meld_install import prompt_install_meld, launch_meld, get_meld_path, wait_for_meld_installation, prompt_enter_config
-from file_system import *
-import glob
-# import views
-from win10toast import ToastNotifier
+
 import pystray
 from PIL import Image
+
 from pystray import MenuItem as item
-import threading
-from plyer import notification
-import sys
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
-class RateLimitedNotifier:
-    def __init__(self, min_interval=5):  # interval in seconds
-        self.min_interval = min_interval
-        self.last_notify_time = 0
-
-    def notify(self, title, message):
-        current_time = time.time()
-        if current_time - self.last_notify_time > self.min_interval:
-            self.last_notify_time = current_time
-            # Do the notification here
-            notification.notify(title=title, message=message)
-rate_limiter = RateLimitedNotifier()
-def show_notification(title, message):
-    toaster = ToastNotifier()
-    toaster.show_toast(title, message, duration=2)
+from abstract_message import AbstractMessage
+from backups import BackupHandler
+from configs import Config
+from file_system import *
+from melder import (MeldHandler, get_meld_path, launch_meld,
+                    prompt_enter_config, prompt_install_meld,
+                    wait_for_meld_installation)
+from notifs import RateLimitedNotifier, show_notification
+#BUG (sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
         self.mod_unpack_path = mod_unpack_path
         self.mod_pak = mod_pak
         self.copy_to = copy_to
+        self.rate_limiter = RateLimitedNotifier()
     def on_modified(self, event):
         if not event.is_directory:
             # Check if the modified file is in the mod_unpack_path
@@ -47,50 +37,7 @@ class FileChangeHandler(FileSystemEventHandler):
                 update_archive(self.mod_unpack_path, self.mod_pak)
                 if self.copy_to:
                     update_archive(self.mod_unpack_path, self.copy_to)
-                rate_limiter.notify(title='Pak Tools', message='Changes saved!')
-
-def read_config():
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    target_workspace = config.get('Workspace', 'target', fallback='')
-    copy_to = config.get('Dev', 'copyto', fallback=None)
-    deep_scan = config.getboolean('Scan', 'deep_scan')
-    source_pak_0 = config.get('Paths', 'source_pak_0')
-    source_pak_1 = config.get('Paths', 'source_pak_1')
-    mod_pak = config.get('Paths', 'mod_pak')
-    overwrite_default = config.getboolean('Misc', 'overwrite_default')
-    hide_unpacked_content = config.getboolean('Misc', 'hide_unpacked_content')
-    meld_config_path = config.get('Meld', 'path', fallback=None)
-    use_meld = config.getboolean('Meld', 'enable')
-    backup_enabled = config.getboolean('Backups', 'enable')
-    backup_count = config.getint('Backups', 'count')
-    return target_workspace, copy_to, deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count
-    
-class MeldHandler:
-    def __init__(self, mod_unpack_path, merged_unpack_path, use_meld, meld_config_path=None):
-        self.mod_unpack_path = mod_unpack_path
-        self.merged_unpack_path = merged_unpack_path
-        self.use_meld = use_meld
-        self.meld_config_path = meld_config_path
-        self.meld_process = None
-
-    def handle(self):
-        if self.use_meld: 
-            meld_path = get_meld_path(meld_config_path=self.meld_config_path)
-            if not meld_path:
-                prompt_install_meld()
-                wait_for_meld_installation()
-            try:
-                self.meld_process = launch_meld(meld_path, self.mod_unpack_path, self.merged_unpack_path)
-                # print("Launching Meld for review...")
-            except FileNotFoundError:
-                print('\nMeld does not appear in PATH or specified path is incorrect. Please install from \
-                    https://meldmerge.org/ or specify the correct path in the config.ini file.')
-                meld_path = wait_for_meld_installation()
-                self.meld_process = launch_meld(meld_path, self.mod_unpack_path, self.merged_unpack_path)
-
-    def poll(self):
-        return self.meld_process.poll() if self.meld_process else None
+                self.rate_limiter.notify(title='Pak Tools', message='Changes saved!')
 
 class ObserverHandler:
     def __init__(self, mod_unpack_path, mod_pak, copy_to):
@@ -107,56 +54,17 @@ class ObserverHandler:
     def stop(self):
         self.file_observer.stop()
         self.file_observer.join()
-class BackupHandler:
-    def __init__(self, backup_path, backup_count, mod_pak):
-        self.backup_path = backup_path
-        self.backup_count = backup_count
-        self.mod_pak = mod_pak
-        self.handle_backup()
 
-    def handle_backup(self):
-        # Ensure the backup directory exists
-        os.makedirs(self.backup_path, exist_ok=True)
-
-        # Compress the mod_pak file
-        timestamp = int(time.time())
-        compressed_file = os.path.join(self.backup_path, f'backup_{timestamp}.pak')
-        with zipfile.ZipFile(compressed_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipf.write(self.mod_pak, os.path.basename(self.mod_pak))
-
-        # Get a list of all backup files
-        all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
-        
-        #block if deleting more than one backup
-        files_to_delete = len(all_backups) - self.backup_count 
-        if files_to_delete > 1:
-            delete_choice = input(f"{files_to_delete} backups were found! Only {self.backup_count} were expected. Delete oldest \nDelete {self.backup_count - files_to_delete} oldest backups? y/n")
-            if delete_choice != 'y':
-                return
-
-        # If the number of backups exceeds the maximum allowed count
-        while len(all_backups) > self.backup_count:
-            all_backups = glob.glob(os.path.join(self.backup_path, 'backup_*.pak'))
-            # Sort the backups by their creation times (obtained from filenames)
-            sorted_backups = sorted(all_backups, key=lambda f: int(f.split('_')[-1].split('.')[0]))
-
-            # Delete the oldest backup file
-            os.remove(sorted_backups[0])
-            
 def tray_thread():
     def prefs():
         # Start the GUI thread
         if prompt_enter_config(): #-> boolready to enter config bool
-            # gui_thread = window.GuiThread() #is now view.py
-            # gui_thread.start()
-            # no longer launching from backend
             pass
     # Create a function to handle the kill action
     def kill_action(icon, item):
         # backend should run independently from frontend. This gives a hand should user decide not to use views.py
         icon.stop()
         os.kill(os.getpid(), 9)
-        return 0
     # Create a function to build the system tray menu
     def build_menu():
         menu = (
@@ -171,23 +79,12 @@ def tray_thread():
     icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
     icon.run()
     
-def set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path):
-    if hide_unpacked_content:
-        try:
-            set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
-        except Exception as e:
-                #print('Program did the bad!')
-                pass
-    else:
-        try:
-            remove_hidden_attributes([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
-        except Exception as e:
-            #print('Program did the bad!')
-            pass
             
 def initialize_workspace():
+    config = Config()
+    
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
-        hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = read_config()
+        hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = config.dump_settings()
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
     mod_pak = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
 
@@ -204,7 +101,7 @@ def initialize_workspace():
     
     verify_source_paks_exist(source_pak_0, source_pak_1, file_missing_error)              
 
-    mod_file_names = get_mod_files(mod_pak)
+    mod_file_names = get_mod_files(mod_pak)        
 
     extract_source_scripts(source_pak_0, mod_file_names, merged_unpack_path)
     extract_source_scripts(source_pak_1, mod_file_names, merged_unpack_path)
@@ -216,16 +113,45 @@ def initialize_workspace():
     # print(f"\n\nComparison complete! \n\nSee for output:\nUnpacked mod scripts > {mod_unpack_path}\nUnpacked source scripts > {merged_unpack_path}\n")
     return (mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak)
 
-class BackendListener:
+class AbstractMessage:
+    def construct_message(self, message_type, message):
+        return f"{message_type}:{message}"
+
+    def request(self, message):
+        return self.construct_message('request', str(message))
+
+    def error(self, message):
+        return self.construct_message('error', str(message))
+
+    def data(self, message):
+        return self.construct_message('data', str(message))
+
+    def response(self, message):
+        return self.construct_message('response', str(message))
+
+    def event(self, message):
+        return self.construct_message('event', str(message))
+
+    def log(self, message):
+        return self.construct_message('log', str(message))
+
+    def set(self, message):
+        return self.construct_message('set', str(message))
+    
+    def pid(self, message):
+        return self.construct_message('pid', str(message))
+class CommsManager():
     def __init__(self):
         self.running = False
         self.listener_thread = None
+        self.message = AbstractMessage()
 
-    def start(self):
+    def listen(self):
+        '''starts daemon thread '''
         self.running = True
         self.listener_thread = threading.Thread(target=self._listen)
         self.listener_thread.daemon = True
-        self.listener_thread.start()
+        self.listener_thread.listen()
 
     def stop(self):
         self.running = False
@@ -235,27 +161,35 @@ class BackendListener:
     def _listen(self):
         while self.running:
             # Receive messages from the frontend
-            message = sys.stdin.readline().strip()
-            if not message:
-                break
+            stdin = sys.stdin.readline().strip()
+            stdin = [line for line in stdin.split('\n') if line.startswith('*')]
 
-            # Process the received message
-            response = self.process_message(message)
-
-            # Send the response back to the frontend
-            self.send_response(response)
-
-    def process_message(self, message):
+            if stdin:
+                # Process the received message
+                response = self.process_message(stdin)
+                # Send the response back to the frontend
+                self.send_response(response)
+            
+    def process_message(self, data):
         # Add your custom logic here based on the received message
-        if message == "Initialized":
-            time.sleep(4)
-            return "sync"
+        
+        payload_type, payload = data.split(":")
+        
+        return self.get_response(payload_type, payload)
 
     def send_response(self, response):
         # Send the response back to the frontend
         print(response, flush=True)
-        # sys.stdout.flush()
-        # sys.stderr.flush()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+    def get_response(self, payload_type, payload):
+        #map message type and payload to a response for return value
+        #start with exhaustive switching
+        if payload_type == 'event':
+            if payload == 'initialized':
+                return self.message.pid(str(sys.getpid))
+            
 
 def main():
     mod_unpack_path, merged_unpack_path, use_meld, meld_config_path, copy_to, mod_pak = initialize_workspace()
@@ -281,7 +215,7 @@ def main():
 
 
 if __name__ == '__main__':
-    listener = BackendListener()
-    listener.start()
+    listener = CommsManager()
+    listener.listen()
     # Run the main program
     main()

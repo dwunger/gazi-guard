@@ -3,6 +3,7 @@ import threading
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QProcess
 from LedIndicatorWidget import *
+import os
 # import DemoAppUi
 
 
@@ -221,23 +222,35 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.kill()
             self.backend_process = None
             
+    @staticmethod
+    def parse_stream(raw_data):
+
+        data = raw_data.strip()  # Strip the data
+        print(data)
+        lines = data.split('\n')
+        messages = [line.lstrip('*') for line in lines if line.startswith('*')]
+        
+        return messages
+    
     def onReadyRead(self):
         # Read the data from the stdout and stderr of the process
         raw_data = self.backend_process.readAll().data().decode()
-        data = raw_data.strip()  # Strip the data
-        print(f"Raw data: '{raw_data}'")  # Print raw data
-        print('**********************')
-        print(f"Stripped data: '{data}'")  # Print stripped data
-        
-        if data == "sync":
-            # Process data
-            self.led.setChecked(True)
-            self.led.update()  # Force the led widget to redraw itself
+
+        # print(f"Raw data: '{raw_data}'")  # Print raw data
+        messages = self.parse_stream(raw_data)
+        for message in messages:
+            if message == "sync":
+                # Process data
+                self.led.setChecked(True)
+                self.led.update()  # Force the led widget to redraw itself
+            if message == 
 
 
     def onBackendFinished(self, exit_code, exit_status):
         # Called when the backend process has finished
+        
         print(f"Backend process finished with exit code {exit_code}")
+        os.kill(os.getpid(), 9)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -245,7 +258,8 @@ if __name__ == "__main__":
     window = MainWindow("main.py")
     window.show()
     window.startBackendProcess()  # Start the backend process
-
-    window.sendMessageToBackend("Initialized")
+    # window.sendMessageToBackend
+    window.sendMessageToBackend("state:ready")
+    window.sendMessageToBackend(f"process:{os.getpid}")
     
     sys.exit(app.exec_())
