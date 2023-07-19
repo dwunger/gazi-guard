@@ -30,6 +30,7 @@ class FileChangeHandler(FileSystemEventHandler):
         self.copy_to = copy_to
         self.rate_limiter = RateLimitedNotifier()
     def on_modified(self, event):
+        comms.send_message(comms.message.set('desync'))
         if not event.is_directory:
             # Check if the modified file is in the mod_unpack_path
             #print('Change detected! Do not exit while saving...')
@@ -38,9 +39,11 @@ class FileChangeHandler(FileSystemEventHandler):
                 # Example usage
                 # rate_limiter.notify('Pak Tools', 'Mod is being updated...')
                 update_archive(self.mod_unpack_path, self.mod_pak)
+                comms.send_message(comms.message.set('sync'))                
                 if self.copy_to:
                     update_archive(self.mod_unpack_path, self.copy_to)
                 self.rate_limiter.notify(title='Pak Tools', message='Changes saved!')
+
 
 class ObserverHandler:
     def __init__(self, mod_unpack_path, mod_pak, copy_to):
@@ -201,7 +204,7 @@ def main():
     meld_handler.handle()
     meld_pid = int(meld_handler.meld_process.pid)
     comms.send_message(comms.message.edior_pid(meld_pid))
-
+    comms.send_message(comms.message.set('sync'))
     observer_handler = ObserverHandler(mod_unpack_path, mod_pak, copy_to)
     observer_handler.start()
     
