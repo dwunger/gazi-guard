@@ -5,6 +5,7 @@ from PyQt5.QtCore import QProcess
 from led_indicator_widget import LedIndicator
 from abstract_message import AbstractMessage
 import os
+from configs import Config
 # import DemoAppUi
 def get_int_date():
     import datetime
@@ -14,16 +15,16 @@ run_number = get_int_date()
 log_file = f"LOG_{run_number}.log"
 def logger_iter(iterable):
     with open(log_file, 'a+') as log:
-        log.write('#######GUI########\n')
+        log.write('#######GUI_START_MESSAGE########\n')
         log.write('iterable: \n')
         log.writelines(iterable)
         log.write('\n')
-        log.write('#######GUI########\n')
+        log.write('#######GUI_END_MESSAGE########\n')
 def logger_str(text):
     with open(log_file, 'a+') as log:
-        log.write('#######GUI########\n')
+        log.write('#######GUI_START_MESSAGE########\n')
         log.write(text + "\n")
-        log.write('#######GUI########\n')
+        log.write('#######GUI_END_MESSAGE########\n')
 
 class CustomTitleBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -104,11 +105,47 @@ class CustomTitleBar(QtWidgets.QWidget):
 
     def onCloseClicked(self):
         # Handle close button click
-        self.parent().close()
+        try:
+            parent = self.parent()
+            parent.exit_all()
+        except:
+            self.parent().close()
+#TODO: restart main proc on settings update
+#TODO: remove unused file methods
+# class OptionsDialog(QtWidgets.QDialog):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+
+#         self.originalFlags = self.parent().windowFlags()  # Store the original window flags
+
+#         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
+#         self.setWindowTitle("Options")
+#         self.setStyleSheet("QDialog { border: none; }")  # Remove the border using style sheet
+
+#         # Create a custom title bar
+#         titleBar = CustomTitleBar(self)
+
+#         # Create the 'Keep on top' toggle button
+#         self.keepOnTopButton = QtWidgets.QCheckBox("Keep on top", self)
+#         self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
+
+#         # Create the layout for the dialog
+#         layout = QtWidgets.QVBoxLayout(self)
+#         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+#         layout.addWidget(titleBar)
+#         layout.addWidget(self.keepOnTopButton)
+#         # layout.addStretch()
+#         self.setLayout(layout)
+
+#         self.setStyleSheet(parent.styleSheet())  # Inherit the style from parent
+
 
 class OptionsDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        self.config = Config()  # Initialize config
+        self.setMinimumWidth(500)  # Replace '500' with your desired minimum width.
 
         self.originalFlags = self.parent().windowFlags()  # Store the original window flags
 
@@ -124,14 +161,77 @@ class OptionsDialog(QtWidgets.QDialog):
         self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
 
         # Create the layout for the dialog
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-        layout.addWidget(titleBar)
-        layout.addWidget(self.keepOnTopButton)
-        # layout.addStretch()
-        self.setLayout(layout)
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        self.layout.addWidget(titleBar)
+        self.layout.addWidget(self.keepOnTopButton)
 
-        self.setStyleSheet(parent.styleSheet())  # Inherit the style from parent
+        # Initialize and display settings fields
+        self.add_settings_fields()
+
+        # Inherit the style from parent
+        self.setStyleSheet(parent.styleSheet())
+
+    def add_settings_fields(self):
+        # Generate form fields for each setting
+        tooltips = {
+            'target_workspace': 'Folder containing source \nmaterials: source_pak_0, source_pak_1, \nand mod_pak',
+            'copy_to': 'Manages copy of repacked mod at path\n (no official support).',
+            'deep_scan': 'Compares files line-wise for \nchanges.',
+            'source_pak_0': 'Name of data0.pak (source archive\n containing original scripts).',
+            'source_pak_1': 'Name of data1.pak (source archive\n containing original scripts).',
+            'mod_pak': 'Name of dataX.pak (mod archive containing\n mod\'s scripts).',
+            'overwrite_default': 'If true: mod_pak overwrites changes to unpacked archive on new load \nof this tool. If false: unpacked \narchive overwrites changes to mod_pak on \nnew load of this tool.',
+            'hide_unpacked_content': 'Set OS hidden flag to \nunpacked directory.',
+            'meld_config_path': 'Path to Meld.exe as per config.ini.\n Falls back to None which scans \npath and again falls back to call \ninstaller for Meld.',
+            'use_meld': 'Launch Meld editor after unpacking mod\n and source scripts.',
+            'backup_enabled': 'Create backup of mod_pak (mod scripts)\n on startup.',
+            'backup_count': 'Number of rolling backups for backup \nmanager to retain.',
+        }
+
+        for setting in self.config.properties:
+            if setting == 'copy_to':  
+                continue
+
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+                field = QtWidgets.QCheckBox(setting.replace('_', ' ').title(), self)
+                field.setChecked(getattr(self.config, setting))
+            else:
+                field = QtWidgets.QLineEdit(self)
+                field.setText(str(getattr(self.config, setting)))
+
+            field.setToolTip(tooltips.get(setting, ""))  
+            setattr(self, f'{setting}_field', field)
+            self.layout.addWidget(field)
+
+        # Add an 'Apply' button to the form to update settings values
+        self.apply_button = QtWidgets.QPushButton("Apply", self)
+        self.apply_button.clicked.connect(self.update_settings)
+        self.layout.addWidget(self.apply_button)
+
+        self.setLayout(self.layout)
+
+
+    def update_settings(self):
+        # Update settings values when 'Apply' button is clicked
+        for setting in self.config.properties:
+            field = getattr(self, f'{setting}_field')
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+                setattr(self.config, setting, field.isChecked())
+            else:
+                setattr(self.config, setting, field.text())
+
+        # Save updated settings to the config.ini file
+        with open(self.config.config_path, 'w') as configfile:
+            self.config.config_parser.write(configfile)
+
+    def onKeepOnTopToggled(self, checked):
+        if checked:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
+        self.parent().setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowTitleHint | self.originalFlags)  # Restore the original window flags
+        self.parent().show()
 
 
     def onKeepOnTopToggled(self, checked):
@@ -203,28 +303,27 @@ class MainWindow(QtWidgets.QMainWindow):
         toolbar.addWidget(menu_button)
 
     def createLEDLayout(self):
-        layout = QtWidgets.QHBoxLayout()
+        main_layout = QtWidgets.QHBoxLayout()
 
-        # Vertically center alignment
-        layout.addStretch(1)
+
+        left_layout = QtWidgets.QHBoxLayout()
+        left_layout.setAlignment(QtCore.Qt.AlignLeft)
 
         self.led = LedIndicator(self)
         self.led.setDisabled(True)  # Make the LED non-clickable
 
-        layout.addWidget(self.led)
-
-        # Add space between the LED and the text widget
-        layout.addSpacing(10)
+        left_layout.addWidget(self.led)
 
         text_widget = QtWidgets.QLabel("Mod Repack Status")
-        layout.addWidget(text_widget)
+        left_layout.addWidget(text_widget)
 
-        # Vertically center alignment
-        layout.addStretch(1)
+        main_layout.addLayout(left_layout)
+
 
         central_widget = QtWidgets.QWidget()
-        central_widget.setLayout(layout)
+        central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
+
 
 
     def onPressButton(self):
@@ -295,6 +394,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return self.message.pid(os.getpid())
         if payload_type == 'editor_pid':
             self.editor_pid = int(payload)            
+            
+    def exit_all(self):
+        processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
+        for process in processes_to_kill:
+            os.kill(process, 9)
+
     def onExitMain(self, exit_code, exit_status):
         # Called when the backend process has finished
         print(f"Backend process finished with exit code {exit_code}")
@@ -306,13 +411,7 @@ if __name__ == "__main__":
     window = MainWindow("main.py")
     window.show()
     window.init_main_proc()  # Start the backend process
-    # window.sendMessageToBackend
+
     window.send_message(window.message.request('pid'))
-    # window.send_message(window.message.event('initialized1'))
-    # window.send_message(window.message.event('initialized2'))
-    # window.send_message(window.message.event('initialized3'))
-    # window.send_message(window.message.event('initialized4'))
-    # window.send_message(window.message.event('initialized5'))
-    # window.sendMessageToBackend(f"process:{os.getpid}")
-    
+
     sys.exit(app.exec_())
