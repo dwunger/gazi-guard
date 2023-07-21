@@ -19,10 +19,12 @@ from melder import (MeldHandler, get_meld_path, launch_meld,
                     wait_for_meld_installation)
 from notifs import RateLimitedNotifier, show_notification
 from utils import resource_path
+from logs import Logger
 #BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 #!QUIRK: App tray icon managed from main.py as separate process from GUI process
 #!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
 #TODO: Update status of repack in GUI - Done with some caveats. Would be best to centralize mod_pak status to class and handle updates internally
+
 class FileChangeHandler(FileSystemEventHandler):
     # def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
     def __init__(self, mod) -> None:
@@ -31,11 +33,14 @@ class FileChangeHandler(FileSystemEventHandler):
         self.rate_limiter = RateLimitedNotifier()
 
     def on_modified(self, event):
+        logger.log_variable("event", event)
         comms.send_message(comms.message.data('on_modified_event'))
         mod.status = 'desync'
         if not event.is_directory:
             # Check if the modified file is in the mod.unpacked_path
             if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
+                logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
+                logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
                 update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
                 mod.status = 'sync'              
                 # if self.copy_to:
@@ -123,9 +128,21 @@ def initialize_workspace():
     
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = config.dump_settings()
+    logger.log_variable("target_workspace", target_workspace)
+    logger.log_variable("copy_to", copy_to)
+    logger.log_variable("deep_scan_enabled", deep_scan_enabled)
+    logger.log_variable("source_pak_0", source_pak_0)
+    logger.log_variable("source_pak_1", source_pak_1)
+    logger.log_variable("mod_path", mod_path)
+    logger.log_variable("overwrite_default", overwrite_default)
+    logger.log_variable("hide_unpacked_content", hide_unpacked_content)
+    logger.log_variable("meld_config_path", meld_config_path)
+    logger.log_variable("use_meld", use_meld)
+    logger.log_variable("backup_enabled", backup_enabled)
+    logger.log_variable("backup_count", backup_count)
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
     mod.packed_path = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
-
+    logger.log_variable("mod.packed_path", mod.packed_path)
     #immediate backup on selection
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod.packed_path)
@@ -218,7 +235,11 @@ class CommsManager():
 
 def main():
     merged_unpack_path, use_meld, meld_config_path, copy_to = initialize_workspace()
-
+    logger.log_variable("merged_unpack_path", merged_unpack_path)
+    logger.log_variable("use_meld", use_meld)
+    logger.log_variable("meld_config_path", meld_config_path)
+    logger.log_variable("copy_to", copy_to)
+    
     # Create the system tray icon
     tray = threading.Thread(target=tray_thread)
     tray.daemon = True  # Allow the program to exit even if the thread is running
@@ -234,6 +255,7 @@ def main():
     
     try:
         while meld_handler.poll() is None:
+            comms.send_message(comms.message.awake('main'))
             comms.send_message(comms.message.set(mod.status))
             time.sleep(1)
     finally:
@@ -241,8 +263,10 @@ def main():
 
     # print('Meld process has exited. Exiting script...')
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
+    logger = Logger()
+    logger.log_info("Logger Started")
     comms = CommsManager()
     comms.listen()
     mod = ModArchive(comms)        
