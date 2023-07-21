@@ -350,7 +350,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def createLEDLayout(self):
         main_layout = QtWidgets.QHBoxLayout()
 
-
         left_layout = QtWidgets.QHBoxLayout()
         left_layout.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -359,11 +358,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         left_layout.addWidget(self.led)
 
-        text_widget = QtWidgets.QLabel("Mod Repack Status")
-        left_layout.addWidget(text_widget)
+        self.text_widget = QtWidgets.QLabel("Mod Status: ")  # Create the text_widget attribute
+        left_layout.addWidget(self.text_widget)
 
         main_layout.addLayout(left_layout)
-
 
         central_widget = QtWidgets.QWidget()
         central_widget.setLayout(main_layout)
@@ -403,7 +401,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.readyRead.connect(self.onListenMain)
             self.backend_process.finished.connect(self.onExitMain)
             self.backend_process.start("python", [self.backend_script])
-
+    # def init_main_proc(self):
+    #     if self.backend_process is None:
+    #         self.backend_process = QProcess()
+    #         self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
+    #         self.backend_process.readyRead.connect(self.onListenMain)
+    #         self.backend_process.finished.connect(self.onExitMain)
+            
+    #         # Start the backend process
+    #         self.backend_process.start("./main") 
     def stopBackendProcess(self):
         if self.backend_process is not None:
             self.backend_process.kill()
@@ -431,6 +437,8 @@ class MainWindow(QtWidgets.QMainWindow):
             inbound_message_type, inbound_message = inbound_message.split(':')
             
             response = self.get_response(inbound_message_type, inbound_message)
+            if response:
+                self.send_message(response)
     def get_response(self, payload_type, payload):
         #map message type and payload to a response for return value
         #start with exhaustive switching
@@ -438,13 +446,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.child_pid = int(payload)
             return self.message.pid(os.getpid())
         if payload_type == 'editor_pid':
-            self.editor_pid = int(payload)           
+            self.editor_pid = int(payload)     
+        if payload_type == 'request':
+            if payload == 'pid':
+                return self.message.pid(os.getpid())
         if payload_type == 'set':
             if payload == 'sync':
                 self.led.setChecked(True)
             elif payload == 'desync':
                 self.led.setChecked(False)
             self.led.update() 
+        if payload_type == 'action':
+            self.text_widget.setText(f"Mod Status: {payload}")
             
     def exit_all(self):
         processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
