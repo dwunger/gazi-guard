@@ -140,6 +140,12 @@ def initialize_workspace():
     logger.log_variable("use_meld", use_meld)
     logger.log_variable("backup_enabled", backup_enabled)
     logger.log_variable("backup_count", backup_count)
+    from utils import guess_workspace_path
+    target_workspace = guess_workspace_path()
+    config.target_workspace = target_workspace
+    # if not mod_path:
+    time.sleep(10)
+        
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
     mod.packed_path = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
     logger.log_variable("mod.packed_path", mod.packed_path)

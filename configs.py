@@ -1,7 +1,9 @@
 import configparser
-from utils import resource_path
+from utils import resource_path, guess_workspace_path, guess_mod_pack_path
+
+
 class Config:
-    docs = 'Note'
+    docs = ''
 #     docs = '''\n\n; NOTES
 # ; Overwrite: 
 # ; Context - Tool does not manage cache states between sessions.
@@ -21,6 +23,7 @@ class Config:
         self.config_parser.read(self.config_path)
         # self.properties = [attr for attr in vars(self) if isinstance(getattr(self, attr), property)]
         # Couldn't get this to work. Do not use as it may not be up to date:
+
         self.properties = [
             'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
@@ -30,17 +33,21 @@ class Config:
     def add_config_notes(self):
         with open(self.config_path, 'a') as file:
             file.write(Config.docs)    
-            
+    def save_config(self):
+        with open(self.config_path, 'w') as config_file:
+            self.config_parser.write(config_file)            
+
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return resource_path(self.config_parser.get('Workspace', 'target', fallback=''))
-    
+        return resource_path(self.config_parser.get('Workspace', 'target', fallback=guess_workspace_path()))
+
     @target_workspace.setter
     def target_workspace(self, value):
         self.config_parser.set('Workspace', 'target', value)
         self.add_config_notes()
-    
+        self.save_config()
+
     @property
     def copy_to(self):
         """No official support. Manages copy of repacked mod at path"""
@@ -84,13 +91,13 @@ class Config:
     @property
     def mod_pak(self):
         """Str: Path to dataX.pak"""
-        return self.config_parser.get('Paths', 'mod_pak')
+        return self.config_parser.get('Paths', 'mod_pak', fallback=guess_mod_pack_path(self.target_workspace))
     
     @mod_pak.setter
     def mod_pak(self, value):
         self.config_parser.set('Paths', 'mod_pak', value)
         self.add_config_notes()
-    
+
     @property
     def overwrite_default(self):
         """Bool: True -> mod_pak overwrites changes to unpacked archive on new load of this tool

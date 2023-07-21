@@ -205,9 +205,9 @@ def choose_mod_pak(mod_pak, target_workspace):
     #print (mod_pak)
     if not os.path.exists(mod_pak):
         dir_list = [f for f in os.listdir(target_workspace) if f.endswith('.pak')]
-        for idx, file in enumerate(dir_list):
-            #print(f'{idx} : {file}')
-            pass
+        # for idx, file in enumerate(dir_list):
+        #     #print(f'{idx} : {file}')
+            # pass
         mod_idx = input("Enter mod archive index: ")
         mod_pak = dir_list[int(mod_idx)]
         mod_pak = os.path.join(target_workspace, mod_pak) 

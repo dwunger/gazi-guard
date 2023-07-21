@@ -13,7 +13,6 @@ from led_indicator_widget import LedIndicator
 from melder import prompt_to_restart
 from utils import resource_path
 
-
 class CustomTitleBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -398,7 +397,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def init_main_proc(self):
         #use scripts if debug is true, else use executables 
         if debug == True:
-            self.backend_script = 'main.py'
+            self.backend_script = 'background.py'
             self.init_main_proc_development_only()
         elif self.backend_process is None:
             self.backend_process = QProcess()
@@ -477,12 +476,12 @@ class MainWindow(QtWidgets.QMainWindow):
         
 if __name__ == "__main__":
     debug = True
-    if os.path.exists(resource_path('main.exe')):
+    if os.path.exists(resource_path('background.exe')):
         debug = False
     
     app = QtWidgets.QApplication(sys.argv)
     
-    window = MainWindow(resource_path("main.exe"))
+    window = MainWindow(resource_path("background.exe"))
     window.show()
     window.init_main_proc()  # Start the backend process
     window.send_message(window.message.request('pid'))
