@@ -1,5 +1,6 @@
 from win10toast import ToastNotifier
 from plyer import notification
+import plyer.platforms.win.notification
 import time
 class RateLimitedNotifier:
     def __init__(self, min_interval=5):  # interval in seconds

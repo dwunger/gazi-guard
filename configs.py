@@ -1,4 +1,5 @@
 import configparser
+from utils import resource_path
 class Config:
     docs = 'Note'
 #     docs = '''\n\n; NOTES
@@ -15,7 +16,7 @@ class Config:
 # ; The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
 # '''    
     def __init__(self):
-        self.config_path = 'config.ini'
+        self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(self.config_path)
         # self.properties = [attr for attr in vars(self) if isinstance(getattr(self, attr), property)]
@@ -33,7 +34,7 @@ class Config:
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return self.config_parser.get('Workspace', 'target', fallback='')
+        return resource_path(self.config_parser.get('Workspace', 'target', fallback=''))
     
     @target_workspace.setter
     def target_workspace(self, value):

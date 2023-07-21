@@ -1,34 +1,18 @@
 import os
 import sys
 import threading
+import time
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QProcess
+from PyQt5.QtCore import QProcess, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QPushButton
 
 from abstract_message import AbstractMessage
 from configs import Config
 from led_indicator_widget import LedIndicator
 from melder import prompt_to_restart
+from utils import resource_path
 
-# import DemoAppUi
-def get_int_date():
-    import datetime
-    current_date = datetime.datetime.now()
-    return current_date.strftime("%Y-%m-%d")
-run_number = get_int_date()
-log_file = f"LOG_{run_number}.log"
-def logger_iter(iterable):
-    with open(log_file, 'a+') as log:
-        log.write('#######GUI_START_MESSAGE########\n')
-        log.write('iterable: \n')
-        log.writelines(iterable)
-        log.write('\n')
-        log.write('#######GUI_END_MESSAGE########\n')
-def logger_str(text):
-    with open(log_file, 'a+') as log:
-        log.write('#######GUI_START_MESSAGE########\n')
-        log.write(text + "\n")
-        log.write('#######GUI_END_MESSAGE########\n')
 
 class CustomTitleBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -293,10 +277,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.backend_script = backend_script
         self.backend_process = None
+
         self.message = AbstractMessage()  # Initialize message here
         self.pid = os.getpid()
         self.child_pid = None
         self.editor_pid = None
+        
+        #timer for backend dead event
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(5000)  # 5000 ms 
+        self.timer.setSingleShot(True)  
+        self.timer.timeout.connect(self.onBackendDead)
+
+
         self.setupUI()
 
     def setupUI(self):
@@ -394,22 +387,27 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.write(message.encode() + b"\n")
             self.backend_process.waitForBytesWritten()
             
-    def init_main_proc(self):
+    def init_main_proc_development_only(self):
+
         if self.backend_process is None:
             self.backend_process = QProcess()
             self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
             self.backend_process.readyRead.connect(self.onListenMain)
             self.backend_process.finished.connect(self.onExitMain)
             self.backend_process.start("python", [self.backend_script])
-    # def init_main_proc(self):
-    #     if self.backend_process is None:
-    #         self.backend_process = QProcess()
-    #         self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
-    #         self.backend_process.readyRead.connect(self.onListenMain)
-    #         self.backend_process.finished.connect(self.onExitMain)
+    def init_main_proc(self):
+        #use scripts if debug is true, else use executables 
+        if debug == True:
+            self.backend_script = 'main.py'
+            self.init_main_proc_development_only()
+        elif self.backend_process is None:
+            self.backend_process = QProcess()
+            self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
+            self.backend_process.readyRead.connect(self.onListenMain)
+            self.backend_process.finished.connect(self.onExitMain)
             
-    #         # Start the backend process
-    #         self.backend_process.start("./main") 
+            # Start the backend process
+            self.backend_process.start(self.backend_script) 
     def stopBackendProcess(self):
         if self.backend_process is not None:
             self.backend_process.kill()
@@ -422,8 +420,6 @@ class MainWindow(QtWidgets.QMainWindow):
         print(data)
         lines = data.split('\n')
         messages = [line.lstrip('*') for line in lines if line.startswith('*')]
-        # logger_iter(lines)
-        # logger_iter(messages)
         return messages
     
     def onListenMain(self):
@@ -458,7 +454,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.led.update() 
         if payload_type == 'action':
             self.text_widget.setText(f"Mod Status: {payload}")
-            
+        if payload_type == 'awake':
+            if payload == 'main':
+                #update time of last awake message
+                self.time.start()
+                
+    def onBackendDead(self):
+        #trigger this if no backend awake message message in last five seconds
+        self.led.setChecked(False)
+        self.text_widget.setText(f"Background process ended. Restart app to continue")
+        
     def exit_all(self):
         processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
         for process in processes_to_kill:
@@ -471,12 +476,17 @@ class MainWindow(QtWidgets.QMainWindow):
         # os.kill(self.pid, 9)
         
 if __name__ == "__main__":
+    debug = True
+    if os.path.exists(resource_path('main.exe')):
+        debug = False
+    
     app = QtWidgets.QApplication(sys.argv)
     
-    window = MainWindow("main.py")
+    window = MainWindow(resource_path("main.exe"))
     window.show()
     window.init_main_proc()  # Start the backend process
-
     window.send_message(window.message.request('pid'))
+    window.timer.start() #start the timer right after initializing the main process to handle the case where no 'awake' message is ever sent
+
 
     sys.exit(app.exec_())

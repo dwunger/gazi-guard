@@ -28,20 +28,3 @@ def get_int_date():
     current_date = datetime.datetime.now()
     return current_date.strftime("%Y-%m-%d")
 run_number = get_int_date()
-
-log_file = f"LOG_{run_number}.log"
-if os.path.exists(log_file):
-    os.remove(log_file)
-def logger_iter(iterable):
-    with open(log_file, 'a+') as log:
-        log.write('#######MAIN_START_MESSAGE########\n')
-        log.write('iterable: \n')
-        log.writelines(iterable)
-        log.write('\n')
-        log.write('#######MAIN_END_MESSAGE########\n')
-def logger_str(text):
-    with open(log_file, 'a+') as log:
-        log.write('#######MAIN_START_MESSAGE########\n')
-        log.write(text + "\n")
-        log.write('#######MAIN_END_MESSAGE########\n')
-        

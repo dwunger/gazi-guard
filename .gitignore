@@ -5,3 +5,6 @@ FlatMetal.qtcurve
 threadtest.py
 DemoAppUi.py
 *.log
+build/
+dist/
+*.spec
