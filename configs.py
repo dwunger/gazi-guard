@@ -1,4 +1,5 @@
 import configparser
+from utils import resource_path
 class Config:
     docs = 'Note'
 #     docs = '''\n\n; NOTES
@@ -33,7 +34,7 @@ class Config:
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return self.config_parser.get('Workspace', 'target', fallback='')
+        return resource_path(self.config_parser.get('Workspace', 'target', fallback=''))
     
     @target_workspace.setter
     def target_workspace(self, value):
