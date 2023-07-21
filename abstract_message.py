@@ -23,6 +23,9 @@ class AbstractMessage:
     def set(self, message):
         return self.construct_message('*set', str(message))
     
+    def action(self, message):
+        return self.construct_message('*action', str(message))
+    
     def pid(self, message):
         return self.construct_message('*pid', str(message))
 
