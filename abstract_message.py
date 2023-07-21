@@ -31,3 +31,6 @@ class AbstractMessage:
 
     def edior_pid(self, message):
         return self.construct_message('*editor_pid', str(message))
+    
+    def awake(self, message):
+        return self.construct_message('*awake', str(message))
