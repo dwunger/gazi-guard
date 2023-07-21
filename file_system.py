@@ -8,6 +8,7 @@ import zipfile
 import tempfile
 import shutil
 import ctypes
+import time
 def bring_window_to_front_by_pid(pid):
     try:
         # Find the window handle using the process ID
@@ -19,15 +20,22 @@ def bring_window_to_front_by_pid(pid):
     except Exception as e:
         print(f"Failed to bring window to front: {e}")
 
-def update_archive(source_path, target_path):
+def update_archive(source_path, target_path, delay = 0.1):
+    #race condition with Meld. There's probably a better way to deal with this
+    #tried a spinlock type approach, but this raises an error on Meld's end
+    time.sleep(delay)
     with zipfile.ZipFile(target_path, 'w') as zipf:
         for foldername, subfolders, filenames in os.walk(source_path):
             for filename in filenames:
                 # Create complete filepath of file in directory
-                filePath = os.path.join(foldername, filename)         
-                # Add file to zip
-                zipf.write(filePath, os.path.relpath(filePath, source_path))
-    
+                filePath = os.path.join(foldername, filename)
+                try:        
+                    # Add file to zip
+                    zipf.write(filePath, os.path.relpath(filePath, source_path))
+                except FileNotFoundError:
+                    print(f"Warning: File {filePath} was not found.")
+                    continue
+
 def set_folder_hidden(folder_path):
     if os.name == 'nt':
         try:
