@@ -218,7 +218,7 @@ def choose_mod_pak(mod_pak, target_workspace):
         # mod_pak = os.path.join(target_workspace, mod_pak) 
         return mod_pak
     else:
-        return mod_pak
+        return None
     
 def extract_source_scripts(source_archive, mod_file_names, destination):
     '''args: source archive path, list of candidate files to extract, extract to path'''
