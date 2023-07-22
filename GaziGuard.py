@@ -192,7 +192,7 @@ class OptionsDialog(QtWidgets.QDialog):
             elif setting in ['source_pak_0', 'source_pak_1', 'mod_pak']:
                 field = QtWidgets.QComboBox()
                 field.addItems([file for file in os.listdir(self.config.target_workspace) if file.endswith(".pak")])
-                field.setCurrentText(str(getattr(self.config, setting)))
+                field.setCurrentText(str(getattr(self.config, os.path.basename(setting))))
             else:
                 field = QtWidgets.QLineEdit(self)
                 field.setText(str(getattr(self.config, setting)))
@@ -249,7 +249,10 @@ class OptionsDialog(QtWidgets.QDialog):
             elif isinstance(field, QtWidgets.QLineEdit):
                 setattr(self.config, setting, field.text())
             elif isinstance(field, QtWidgets.QComboBox):
-                setattr(self.config, setting, field.currentText())
+                if setting != 'mod_pak':
+                    setattr(self.config, setting, field.currentText())
+                else:
+                    setattr(self.config, setting, os.path.join(self.config.target_workspace, field.currentText()))
 
         # Save updated settings to the config.ini file
         with open(self.config.config_path, 'w') as configfile:
@@ -284,7 +287,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
         #timer for backend dead event
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(5000)  # 5000 ms 
+        self.timer.start()
+        self.timer.setInterval(3000)  # 3000 ms 
         self.timer.setSingleShot(True)  
         self.timer.timeout.connect(self.onBackendDead)
 
@@ -320,13 +324,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def createFileMenuButton(self, toolbar):
         menu = QtWidgets.QMenu(self)
 
-        # action1 = QtWidgets.QAction("Open...", self)
-        # # action1.triggered.connect(self.openFileDialog)
-        # menu.addAction(action1)
-
-        # action2 = QtWidgets.QAction("Hide", self)
-        # menu.addAction(action2)
-
         action3 = QtWidgets.QAction("Options...", self)
         action3.triggered.connect(self.openOptionsDialog)
         menu.addAction(action3)
@@ -359,12 +356,9 @@ class MainWindow(QtWidgets.QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-
-
     def onPressButton(self):
         self.led.setChecked(not self.led.isChecked())
 
-        
     def openOptionsDialog(self):
         # Temporarily remove the "Keep on top" flag
         if self.windowFlags() & QtCore.Qt.WindowStaysOnTopHint:
@@ -414,27 +408,30 @@ class MainWindow(QtWidgets.QMainWindow):
             
     @staticmethod
     def parse_stream(raw_data):
-
-        data = raw_data.strip()  # Strip the data
+        data = raw_data.strip()  # strip block of std::in
         print(data)
         lines = data.split('\n')
         messages = [line.lstrip('*') for line in lines if line.startswith('*')]
+        messages = [message.strip() for message in messages] #strip /r from each line
         return messages
     
     def onListenMain(self):
         # Read the data from the stdout and stderr of the process
-        raw_data = self.backend_process.readAll().data().decode()
-
-        # print(f"Raw data: '{raw_data}'")  # Print raw data
+        try:
+            raw_data = self.backend_process.readAll().data().decode()
+        except:
+            #probably a better way to deal with reloading background process
+            raw_data = ""
         inbound_messages = self.parse_stream(raw_data)
-        
         for inbound_message in inbound_messages:
             inbound_message_type, inbound_message = inbound_message.split(':')
-            
             response = self.get_response(inbound_message_type, inbound_message)
             if response:
                 self.send_message(response)
     def get_response(self, payload_type, payload):
+        from logs import Logger
+        logger = Logger()
+        
         #map message type and payload to a response for return value
         #start with exhaustive switching
         if payload_type == 'pid':
@@ -455,8 +452,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.text_widget.setText(f"Mod Status: {payload}")
         if payload_type == 'awake':
             if payload == 'main':
-                #update time of last awake message
-                self.time.start()
+                self.timer.start()  # Restart the timer
                 
     def onBackendDead(self):
         #trigger this if no backend awake message message in last five seconds
@@ -470,9 +466,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def onExitMain(self, exit_code, exit_status):
         # Called when the backend process has finished
-        os.kill(self.editor_pid, 9)
-        print(f"Backend process finished with exit code {exit_code}")
-        # os.kill(self.pid, 9)
+        # os.kill(int(self.editor_pid), 9)
+        pass
+        os.kill(self.pid, 9)
+        
         
 if __name__ == "__main__":
     debug = True
@@ -485,7 +482,7 @@ if __name__ == "__main__":
     window.show()
     window.init_main_proc()  # Start the backend process
     window.send_message(window.message.request('pid'))
-    window.timer.start() #start the timer right after initializing the main process to handle the case where no 'awake' message is ever sent
+    # window.timer.start() #start the timer right after initializing the main process to handle the case where no 'awake' message is ever sent
 
 
     sys.exit(app.exec_())
