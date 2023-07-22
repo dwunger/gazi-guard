@@ -1,6 +1,6 @@
 import configparser
 from utils import resource_path, guess_workspace_path, guess_mod_pack_path
-
+from melder import get_meld_path
 
 class Config:
     docs = ''
@@ -36,11 +36,19 @@ class Config:
     def save_config(self):
         with open(self.config_path, 'w') as config_file:
             self.config_parser.write(config_file)            
+    def assign_requirements(self):
+        if self.config_parser.get(self.target_workspace)=='':
+            self.target_workspace = guess_workspace_path()
+        if self.config_parser.get(self.mod_pak) == '':
+            self.mod_pak = guess_mod_pack_path(self.target_workspace)
+        if self.meld_config_path == '':
+            self.meld_config_path = get_meld_path()
+        self.save_config()
 
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return resource_path(self.config_parser.get('Workspace', 'target', fallback=guess_workspace_path()))
+        return resource_path(self.config_parser.get('Workspace', 'target'))
 
     @target_workspace.setter
     def target_workspace(self, value):
