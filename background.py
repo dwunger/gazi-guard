@@ -33,14 +33,14 @@ class FileChangeHandler(FileSystemEventHandler):
         self.rate_limiter = RateLimitedNotifier()
 
     def on_modified(self, event):
-        logger.log_variable("event", event)
+        # logger.log_variable("event", event)
         comms.send_message(comms.message.data('on_modified_event'))
         mod.status = 'desync'
         if not event.is_directory:
             # Check if the modified file is in the mod.unpacked_path
             if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
-                logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
-                logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
+                # logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
+                # logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
                 update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
                 mod.status = 'sync'              
                 # if self.copy_to:
@@ -126,29 +126,29 @@ def tray_thread():
 def initialize_workspace():
     config = Config()
     
-    target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod_path, overwrite_default, \
+    target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod.packed_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = config.dump_settings()
-    logger.log_variable("target_workspace", target_workspace)
-    logger.log_variable("copy_to", copy_to)
-    logger.log_variable("deep_scan_enabled", deep_scan_enabled)
-    logger.log_variable("source_pak_0", source_pak_0)
-    logger.log_variable("source_pak_1", source_pak_1)
-    logger.log_variable("mod_path", mod_path)
-    logger.log_variable("overwrite_default", overwrite_default)
-    logger.log_variable("hide_unpacked_content", hide_unpacked_content)
-    logger.log_variable("meld_config_path", meld_config_path)
-    logger.log_variable("use_meld", use_meld)
-    logger.log_variable("backup_enabled", backup_enabled)
-    logger.log_variable("backup_count", backup_count)
-    from utils import guess_workspace_path
-    target_workspace = guess_workspace_path()
-    config.target_workspace = target_workspace
+
+
     # if not mod_path:
-    time.sleep(10)
-        
+    # time.sleep(10)
+    # logger.log_variable('')
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
-    mod.packed_path = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
-    logger.log_variable("mod.packed_path", mod.packed_path)
+    # mod.packed_path = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
+    
+    # logger.log_variable("mod.packed_path", mod.packed_path)
+    # logger.log_variable("target_workspace", target_workspace)
+    # # logger.log_variable("copy_to", copy_to)
+    # # logger.log_variable("deep_scan_enabled", deep_scan_enabled)
+    # # logger.log_variable("source_pak_0", source_pak_0)
+    # # logger.log_variable("source_pak_1", source_pak_1)
+    # logger.log_variable("mod_path", mod_path)
+    # logger.log_variable("overwrite_default", overwrite_default)
+    # logger.log_variable("hide_unpacked_content", hide_unpacked_content)
+    # logger.log_variable("meld_config_path", meld_config_path)
+    # logger.log_variable("use_meld", use_meld)
+    # logger.log_variable("backup_enabled", backup_enabled)
+    # logger.log_variable("backup_count", backup_count)
     #immediate backup on selection
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod.packed_path)
@@ -156,13 +156,13 @@ def initialize_workspace():
     source_pak_1 = os.path.join(target_workspace, source_pak_1)
     mod.unpacked_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod.packed_path)}_mod_scripts")
     merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod.packed_path)}_source_scripts')
-
+    
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
                          
     verify_source_paks_exist(source_pak_0, source_pak_1, file_missing_error)              
-
-    mod_file_names = get_mod_files(mod.packed_path)        
+    # logger.log_variable('mod.packed_path***', mod.packed_path)
+    mod_file_names = get_mod_files(mod.packed_path)         
 
     extract_source_scripts(source_pak_0, mod_file_names, merged_unpack_path)
     extract_source_scripts(source_pak_1, mod_file_names, merged_unpack_path)
@@ -241,10 +241,10 @@ class CommsManager():
 
 def main():
     merged_unpack_path, use_meld, meld_config_path, copy_to = initialize_workspace()
-    logger.log_variable("merged_unpack_path", merged_unpack_path)
-    logger.log_variable("use_meld", use_meld)
-    logger.log_variable("meld_config_path", meld_config_path)
-    logger.log_variable("copy_to", copy_to)
+    # logger.log_variable("merged_unpack_path", merged_unpack_path)
+    # logger.log_variable("use_meld", use_meld)
+    # logger.log_variable("meld_config_path", meld_config_path)
+    # logger.log_variable("copy_to", copy_to)
     
     # Create the system tray icon
     tray = threading.Thread(target=tray_thread)
