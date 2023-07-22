@@ -1,26 +1,74 @@
 import configparser
-from utils import resource_path
+from utils import resource_path, guess_workspace_path, guess_mod_pack_path
+from melder import get_meld_path
+#FOR REFERENCE:
+# def generate_steam_paths():
+#     drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#     steam_installation_path = "Program Files (x86)\\Steam"  # Default Steam installation path on 64-bit Windows
+
+#     steam_paths = []
+
+#     for drive_letter in drive_letters:
+#         path = f"{drive_letter}:\\{steam_installation_path}"
+#         steam_paths.append(path)
+
+#         for custom_path in ["Steam", "Games\\Steam", "SteamLibrary"]:
+#             path = f"{drive_letter}:\\{custom_path}"
+#             steam_paths.append(path)
+
+#     return steam_paths
+
+# def guess_workspace_path():
+#     steam_paths = generate_steam_paths()
+
+#     for path in steam_paths:
+#         workspace_guess = os.path.join(path, 'steamapps', 'common', 'Dying Light 2', 'ph', 'source')
+        
+#         if os.path.exists(workspace_guess):
+#             return workspace_guess
+#     else:
+#         return None
+    
+# def guess_mod_pack_path(target_workspace):
+#     for i in range(2,16):
+#         filename = f'data{i}.pak'
+#         guess = os.path.join(target_workspace, filename)
+#         if os.path.exists(guess):
+#             return guess
+#     else:
+#         return None
+# def resource_path(relative_path):
+#     """standardize relative references"""
+#     try:
+#         base_path = sys._MEIPASS
+#     except Exception:
+#         base_path = os.path.abspath(".")
+#     return os.path.join(base_path, relative_path)
+
+
+# def get_meld_path(meld_config_path=None):
+#     if meld_config_path:
+#         return meld_config_path    
+#     where_meld = shutil.which('meld')
+#     if where_meld:
+#         config = configparser.ConfigParser()
+#         config.read('config.ini')
+#         config.set('Meld', 'path', where_meld)
+#         with open('config.ini', 'w') as config_file:
+#             config.write(config_file)
+#         add_config_notes()
+#         return where_meld
+#     else:
+#         return None
+
 class Config:
-    docs = 'Note'
-#     docs = '''\n\n; NOTES
-# ; Overwrite: 
-# ; Context - Tool does not manage cache states between sessions.
-# ; Situation - If changes are made to unpacked files while tool is closed, how should these changes be handled 
-# ; next time this tool runs:
-# ;
-# ;   - true:  mod_pak (dataX.pak) is the master copy of the mod. Untracked changes to the 
-# ;            unpacked mod directory will be overwritten.
-# ;   - false: The unpacked mod is the master copy. Untracked changes to mod_pak (dataX.pak) 
-# ;            will be overwritten
-# ; Hide: 
-# ; The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
-# '''    
+    docs = None
     def __init__(self):
         self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(self.config_path)
-        # self.properties = [attr for attr in vars(self) if isinstance(getattr(self, attr), property)]
-        # Couldn't get this to work. Do not use as it may not be up to date:
+        self.assign_requirements()
+
         self.properties = [
             'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
@@ -29,18 +77,32 @@ class Config:
 
     def add_config_notes(self):
         with open(self.config_path, 'a') as file:
-            file.write(Config.docs)    
+            if Config.docs:
+                file.write(Config.docs)    
+    def save_config(self):
+        with open(self.config_path, 'w') as config_file:
+            self.config_parser.write(config_file)            
+    def assign_requirements(self):
+        if self.config_parser.get('Workspace', 'target')=='':
+            self.target_workspace = guess_workspace_path()
+        if self.config_parser.get('Paths', 'mod_pak') == '':
+            self.mod_pak = guess_mod_pack_path(self.target_workspace)
             
+        if self.meld_config_path == '':
+            self.meld_config_path = get_meld_path()
+        self.save_config()
+
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return resource_path(self.config_parser.get('Workspace', 'target', fallback=''))
-    
+        return resource_path(self.config_parser.get('Workspace', 'target'))
+
     @target_workspace.setter
     def target_workspace(self, value):
         self.config_parser.set('Workspace', 'target', value)
-        self.add_config_notes()
-    
+        self.save_config()
+
+
     @property
     def copy_to(self):
         """No official support. Manages copy of repacked mod at path"""
@@ -49,7 +111,7 @@ class Config:
     @copy_to.setter
     def copy_to(self, value):
         self.config_parser.set('Dev', 'copyto', value)
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def deep_scan(self):
@@ -59,7 +121,7 @@ class Config:
     @deep_scan.setter
     def deep_scan(self, value):
         self.config_parser.set('Scan', 'deep_scan', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def source_pak_0(self):
@@ -69,7 +131,7 @@ class Config:
     @source_pak_0.setter
     def source_pak_0(self, value):
         self.config_parser.set('Paths', 'source_pak_0', value)
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def source_pak_1(self):
@@ -79,7 +141,7 @@ class Config:
     @source_pak_1.setter
     def source_pak_1(self, value):
         self.config_parser.set('Paths', 'source_pak_1', value)
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def mod_pak(self):
@@ -89,8 +151,8 @@ class Config:
     @mod_pak.setter
     def mod_pak(self, value):
         self.config_parser.set('Paths', 'mod_pak', value)
-        self.add_config_notes()
-    
+        self.save_config()
+
     @property
     def overwrite_default(self):
         """Bool: True -> mod_pak overwrites changes to unpacked archive on new load of this tool
@@ -100,7 +162,7 @@ class Config:
     @overwrite_default.setter
     def overwrite_default(self, value):
         self.config_parser.set('Misc', 'overwrite_default', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def hide_unpacked_content(self):
@@ -110,7 +172,7 @@ class Config:
     @hide_unpacked_content.setter
     def hide_unpacked_content(self, value):
         self.config_parser.set('Misc', 'hide_unpacked_content', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def meld_config_path(self):
@@ -120,7 +182,7 @@ class Config:
     @meld_config_path.setter
     def meld_config_path(self, value):
         self.config_parser.set('Meld', 'path', value)
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def use_meld(self):
@@ -130,7 +192,7 @@ class Config:
     @use_meld.setter
     def use_meld(self, value):
         self.config_parser.set('Meld', 'enable', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def backup_enabled(self):
@@ -140,7 +202,7 @@ class Config:
     @backup_enabled.setter
     def backup_enabled(self, value):
         self.config_parser.set('Backups', 'enable', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     @property
     def backup_count(self):
@@ -150,7 +212,7 @@ class Config:
     @backup_count.setter
     def backup_count(self, value):
         self.config_parser.set('Backups', 'count', str(value))
-        self.add_config_notes()
+        self.save_config()
     
     def dump_settings(self):
         """
@@ -196,3 +258,20 @@ class Config:
 #     backup_enabled = config.getboolean('Backups', 'enable')
 #     backup_count = config.getint('Backups', 'count')
 #     return target_workspace, copy_to, deep_scan, source_pak_0, source_pak_1, mod_pak, overwrite_default, hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count
+
+
+
+#docs = ''
+#     docs = '''\n\n; NOTES
+# # Overwrite: 
+# # Context - Tool does not manage cache states between sessions.
+# # Situation - If changes are made to unpacked files while tool is closed, how should these changes be handled 
+# # next time this tool runs:
+# #
+# #   - true:  mod_pak (dataX.pak) is the master copy of the mod. Untracked changes to the 
+# #            unpacked mod directory will be overwritten.
+# #   - false: The unpacked mod is the master copy. Untracked changes to mod_pak (dataX.pak) 
+# #            will be overwritten
+# # Hide: 
+# # The tool must unpack archives to work with their contents. Should the unpacked contents be hidden?
+# '''    

@@ -9,6 +9,7 @@ import tempfile
 import shutil
 import ctypes
 import time
+from utils import guess_mod_pack_path
 def bring_window_to_front_by_pid(pid):
     try:
         # Find the window handle using the process ID
@@ -202,18 +203,22 @@ def increment_path(base_path):
         count += 1
 
 def choose_mod_pak(mod_pak, target_workspace):
+
     #print (mod_pak)
     if not os.path.exists(mod_pak):
-        dir_list = [f for f in os.listdir(target_workspace) if f.endswith('.pak')]
-        for idx, file in enumerate(dir_list):
-            #print(f'{idx} : {file}')
-            pass
-        mod_idx = input("Enter mod archive index: ")
-        mod_pak = dir_list[int(mod_idx)]
-        mod_pak = os.path.join(target_workspace, mod_pak) 
+        #TODO: create a prompt to select and find a good spot to synchronize a pause on front- and backend
+        mod_pak = guess_mod_pack_path(target_workspace)
+        
+        # dir_list = [f for f in os.listdir(target_workspace) if f.endswith('.pak')]
+        # # for idx, file in enumerate(dir_list):
+        # #     #print(f'{idx} : {file}')
+        #     # pass
+        # mod_idx = input("Enter mod archive index: ")
+        # mod_pak = dir_list[int(mod_idx)]
+        # mod_pak = os.path.join(target_workspace, mod_pak) 
         return mod_pak
     else:
-        return mod_pak
+        return None
     
 def extract_source_scripts(source_archive, mod_file_names, destination):
     '''args: source archive path, list of candidate files to extract, extract to path'''
