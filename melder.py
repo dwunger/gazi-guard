@@ -48,12 +48,21 @@ def prompt_delete_backups(message):
     
     return response
 
+
 def prompt_to_restart():
     root = tk.Tk()
     root.withdraw()
+    
+    # Set the prompt dialog on top
+    root.attributes('-topmost', True)
+    
     response = messagebox.askokcancel("Restarting Background Process and Meld", 'Please save any changes before pressing continue')
     
+    # Restore the normal behavior after the dialog is closed
+    root.attributes('-topmost', False)
+    
     return response
+
 
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
