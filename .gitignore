@@ -8,3 +8,5 @@ DemoAppUi.py
 build/
 dist/
 *.spec
+background_output/
+distro/
