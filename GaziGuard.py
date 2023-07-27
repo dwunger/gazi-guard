@@ -56,10 +56,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.createToggleLEDButton(toolbar)
         self.createFileMenuButton(toolbar)
 
-    # def createToggleLEDButton(self, toolbar):
-    #     self.pushButton = QtWidgets.QPushButton("Toggle LED", self)
-    #     self.pushButton.clicked.connect(self.onPressButton)
-    #     toolbar.addWidget(self.pushButton)
+    def createToggleLEDButton(self, toolbar):
+        self.pushButton = QtWidgets.QPushButton("Toggle LED", self)
+        self.pushButton.clicked.connect(self.onPressButton)
+        toolbar.addWidget(self.pushButton)
 
     def createFileMenuButton(self, toolbar):
         menu = QtWidgets.QMenu(self)
@@ -124,35 +124,37 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.write(message.encode() + b"\n")
             self.backend_process.waitForBytesWritten()
 
-    # def init_main_proc_development_only(self):
-
-    #     if self.backend_process is None:
-    #         self.backend_process = QProcess()
-    #         self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
-    #         self.backend_process.readyRead.connect(self.onListenMain)
-    #         self.backend_process.finished.connect(self.onExitMain)
-    #         self.backend_process.start("python", [self.backend_script])
-
     def init_main_proc(self):
-        if self.backend_process is not None:
-            return
 
-        if getattr(sys, 'frozen', False):
-            # Running as an executable (compiled version)
-            executable_path = sys.executable  # Path to the executable
-            self.backend_script = resource_path("background.exe")
-        else:
-            # Running as a script
-            executable_path = "python"
-            self.backend_script = resource_path("background.py")
+        if self.backend_process is None:
+            self.backend_process = QProcess()
+            self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
+            self.backend_process.readyRead.connect(self.onListenMain)
+            self.backend_process.finished.connect(self.onExitMain)
+            self.backend_script = 'background.exe'
+            self.backend_process.start(self.backend_script)
 
-        self.backend_process = QProcess()
-        self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
-        self.backend_process.readyRead.connect(self.onListenMain)
-        self.backend_process.finished.connect(self.onExitMain)
+    # def init_main_proc(self):
+    #     if self.backend_process is not None:
+    #         if self.backend_process.state() != QProcess.NotRunning:
+    #             return
 
-        # Start the backend process
-        self.backend_process.start(executable_path, [self.backend_script])
+    #     if getattr(sys, 'frozen', False):
+    #         # Running as an executable (compiled version)
+    #         executable_path = sys.executable  # Path to the executable
+    #         self.backend_script = resource_path("background.exe")
+    #     else:
+    #         # Running as a script
+    #         executable_path = "python"
+    #         self.backend_script = resource_path("background.py")
+
+    #     self.backend_process = QProcess()
+    #     self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
+    #     self.backend_process.readyRead.connect(self.onListenMain)
+    #     self.backend_process.finished.connect(self.onExitMain)
+
+    #     # Start the backend process
+    #     self.backend_process.start(executable_path, [self.backend_script])
 
     def stopBackendProcess(self):
         if self.backend_process is not None:
@@ -210,7 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #trigger this if no backend awake message message in last five seconds
         self.led.setChecked(False)
         self.text_widget.setText(f"Background process ended. Restart app to continue")
-        
+        # pass
     def exit_all(self):
         processes_to_kill = [pid for pid in (self.editor_pid, self.child_pid, self.pid) if pid]
         for process in processes_to_kill:
