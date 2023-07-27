@@ -6,12 +6,13 @@ This Python script helps mod developers to prepare their Dying Light 2 mods for 
 
 - Python 3.x
 - [Meld](https://meldmerge.org/) for comparison and review of files. If Meld is not installed or its path is not specified in the PATH environment variable, you may need to manually drag and drop the output directories to Meld or use any other file comparison tool of your preference.
-
+#OR
+- Install with install wizard / unpack executable
 ## Usage
+1. Run GaziGuard. The tool will use heuristics to resolve all the paths auto-magically. If it fails, proceed to update `config.ini`:
+2. Point the script to the `./steamapps/common/Dying Light 2/ph/source/` directory as your 'workspace' an equivalent workspace containing data0, data1, and your mod.
+3. Install Meld and add path to configs
 
-1. Place the script in the `./steamapps/common/Dying Light 2/ph/source/` directory or create an equivalent workspace.
-2. Run the tool
-3. Follow the prompts and instructions provided for first time setup
 
 ## Output
 
