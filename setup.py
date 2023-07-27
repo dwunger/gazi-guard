@@ -18,18 +18,18 @@ def run_pyinstaller(script, options):
 run_pyinstaller(main_script, '--icon="icon64.ico" --noconsole --noconfirm')
 
 # Build the background script without console
-run_pyinstaller(background_script, "--noconsole --noconfirm")
+# run_pyinstaller(background_script, "--noconsole --noconfirm")
 
 # Build the background script with a different destination folder
-run_pyinstaller(background_script, "--distpath background_output")
+run_pyinstaller(background_script, "--distpath background_output --noconfirm")
 
 # Get the datetime stamp
 datetime_stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
 # Merge the contents of the three resulting folders into one single folder
 main_dist_folder = Path("dist")
-background_dist_folder = Path("background_output")
-merged_output_folder = Path(f"merged_output_{datetime_stamp}")
+background_dist_folder = Path("dist/background_output")
+merged_output_folder = Path(f"dist/merged_output_{datetime_stamp}")
 
 # Copy the main script files
 copy_tree(str(main_dist_folder / main_script.split(".")[0]), str(merged_output_folder))
@@ -56,5 +56,7 @@ setup(
 # Clean up the temporary folders
 shutil.rmtree(main_dist_folder)
 shutil.rmtree(background_dist_folder)
+shutil.rmtree('background.spec')
+shutil.rmtree('GaziGuard.spec')
 
 print("Build completed successfully!")
