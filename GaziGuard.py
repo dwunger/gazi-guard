@@ -11,6 +11,7 @@ from titlebar_widget import CustomTitleBar
 from utils import resource_path
 
 # TODO: restart main proc on settings update
+# TODO: prevent duplicate backups to preserve a more efficient trail of changes
 
 
 class MainWindow(QtWidgets.QMainWindow):
