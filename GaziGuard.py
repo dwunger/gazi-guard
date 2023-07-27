@@ -124,15 +124,24 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.write(message.encode() + b"\n")
             self.backend_process.waitForBytesWritten()
 
-    def init_main_proc(self):
 
+
+    def init_main_proc(self):
         if self.backend_process is None:
             self.backend_process = QProcess()
             self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
             self.backend_process.readyRead.connect(self.onListenMain)
             self.backend_process.finished.connect(self.onExitMain)
+
+        python_executable = 'python'  # Change this to the path of the 'python' executable if it's not in the system PATH.
+
+        if os.path.exists(resource_path('background.py')):
+            self.backend_script = 'background.py'
+            self.backend_process.start(python_executable, [self.backend_script])
+        elif os.path.exists(resource_path('background.exe')):
             self.backend_script = 'background.exe'
             self.backend_process.start(self.backend_script)
+
 
     # def init_main_proc(self):
     #     if self.backend_process is not None:
