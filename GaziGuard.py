@@ -10,8 +10,12 @@ from options_dialog import OptionsDialog
 from titlebar_widget import CustomTitleBar
 from utils import resource_path
 
-# TODO: restart main proc on settings update
-# TODO: prevent duplicate backups to preserve a more efficient trail of changes
+
+# TODO: Restart main proc on settings update
+# TODO: Distinguish file and directory update events for granular archive repacks
+# TODO: Experiment launching other diff tools from command line
+# TODO: Compare backups before shifting the stack for more efficient history of backups
+# TODO: Set keep on top as default
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -37,7 +41,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.init_main_proc()  # Start the backend process
         self.send_message(self.message.request('pid'))
     def setupUI(self):
-        self.setWindowTitle("Pak Tools")
+        self.setWindowTitle("Gazi Guard")
         self.resize(400, 150)  # Set the initial size of the window
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
 
@@ -125,15 +129,24 @@ class MainWindow(QtWidgets.QMainWindow):
             self.backend_process.write(message.encode() + b"\n")
             self.backend_process.waitForBytesWritten()
 
-    def init_main_proc(self):
 
+
+    def init_main_proc(self):
         if self.backend_process is None:
             self.backend_process = QProcess()
             self.backend_process.setProcessChannelMode(QProcess.MergedChannels)
             self.backend_process.readyRead.connect(self.onListenMain)
             self.backend_process.finished.connect(self.onExitMain)
+
+        python_executable = 'python'  # Change this to the path of the 'python' executable if it's not in the system PATH.
+
+        if os.path.exists(resource_path('background.py')):
+            self.backend_script = 'background.py'
+            self.backend_process.start(python_executable, [self.backend_script])
+        elif os.path.exists(resource_path('background.exe')):
             self.backend_script = 'background.exe'
             self.backend_process.start(self.backend_script)
+
 
     # def init_main_proc(self):
     #     if self.backend_process is not None:

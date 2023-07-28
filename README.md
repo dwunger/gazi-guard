@@ -1,45 +1,46 @@
-# Dying Light 2 Mod Update Helper
+# GaziGuard - Dying Light 2 Mod Version Control Tool
 
-This Python script helps mod developers to prepare their Dying Light 2 mods for updates. It extracts the necessary mod files, creates two directories for comparison, and uses Meld for reviewing differences and merging updates as required. Furthermore, it automatically saves and updates changes in the `.pak` file whenever a file modification is detected in the mod directory.
+GaziGuard is an advanced tool designed to aid mod developers in tracking changes between updates, maintaining, and updating their Dying Light 2 mods. The tool's primary function is to facilitate seamless comparison and merging of changes in the mod files, using Meld, a popular visual diff, and merge tool. Additionally, GaziGuard also monitors the mod's directory for any changes and repacks the mod automatically, significantly reducing the time and effort required for manual repacking.
 
-## Prerequisites
+## Key Features
+- Automatic repacking of mods upon detection of file modifications in the mod directory
+- Integrated with Meld for file comparison and merging
+- LED indicator to display the repacking status of the mod
+- Toast notifications when successfully repacks
+- Backup management for the mod files
+- Convenient system tray icon for application control
+- Easy configuration through a GUI for setting preferences
 
-- Python 3.x
-- [Meld](https://meldmerge.org/) for comparison and review of files. If Meld is not installed or its path is not specified in the PATH environment variable, you may need to manually drag and drop the output directories to Meld or use any other file comparison tool of your preference.
+## Installation
+GaziGuard is provided as a Windows installable package through Inno Setup, complete with binaries and DLLs. Additionally, a zipped version is also available for those preferring not to use an installer.
 
 ## Usage
+Upon installation, launch the GaziGuard application. You'll notice a system tray icon for controlling the application and an LED indicator that shows the repacking status of the mod. Your mod should `auto-magically` appear in the Meld visual diff editor.
 
-1. Place the script in the `./steamapps/common/Dying Light 2/ph/source/` directory or create an equivalent workspace.
-2. Run the tool
-3. Follow the prompts and instructions provided for first time setup
+### Configuration
+GaziGuard uses heuristics to build its configuration file. Should it make any mistakes, be sure to set your preferences through the GUI settings. Point the tool to your mod script path by following these steps:
+
+1. `File` → `Options`
+2. Drop down and select your mod script.
+3. Apply and restart
+
+If you would prefer to use another editor, you should be able to point it to any editor which supports launching diffs from the command line: `editor.exe` `dir1` `dir2`. Point the tool to your editor of choice in options.
+
+### Using Meld for File Comparison and Merging
+If Meld is not installed or its path is not specified, GaziGuard will prompt you to download and install it. Once installed, GaziGuard will automatically open Meld with the directories of your source scripts and mod scripts for comparison and merging.
+
+### Automatic Repacking and Backup
+GaziGuard automatically repacks your mod whenever a change is detected in the mod directory. The repacking status is displayed on the LED indicator. GaziGuard also manages backups of your mod files to prevent accidental data loss.
 
 ## Output
 
-Upon execution, the script generates two directories:
+Upon execution, the script generates two directories (hidden by default):
 
-1. `mod_scripts/` - Contains the unpacked files from your mod.
-2. `source_scripts/` - Contains the unpacked files from the base game's data.pak.
-   
-🌟🌟🌟
-
-This tool introduces an automatic update feature. It monitors the `mod_scripts/` directory for any changes and instantly updates the corresponding `.pak` file with the modified mod contents. This feature saves developers from manually repacking the mod each time a change is made.
-
-## Configuration
-
-The script uses a `config.ini` file for various settings, such as:
-
-- Deep scan options for file and directory comparisons.
-- Paths to source pak files.
-- Path to mod pak file.
-- Hide unpacked content option (makes the unpacked directories hidden).
-- Path to Meld (optional).
-
-Adjust these settings as needed before running the script.
+1. `Unpacked/mod_scripts/` - Contains the unpacked files from your mod.
+2. `Unpacked/source_scripts/` - Contains the unpacked files from the base game's data.pak.
 
 ## Limitations
-
-The script assumes that the default data.pak archives are named `data0.pak` and `data1.pak`. If the archive names in your setup are different, adjust the source code accordingly.
+GaziGuard assumes that your target workspace contains data0.pak, data1.pak, and your mod following this naming scheme. On initial setup, the tool will pick the lower data index as your mod. If the archive names in your setup are different, you will need to make this change in the options.
 
 ## Contributions
-
-Contributions are welcome to improve this tool. Please fork the repository and create a pull request with your changes.
+We welcome contributions to improve GaziGuard. Please fork the repository and create a pull request with your changes.
