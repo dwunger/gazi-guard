@@ -1,6 +1,7 @@
 import configparser
 from utils import resource_path, guess_workspace_path, guess_mod_pack_path
 from melder import get_meld_path
+import os
 #FOR REFERENCE:
 # def generate_steam_paths():
 #     drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -91,13 +92,20 @@ class Config:
     # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
     # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
     '''
-
     def __init__(self):
         self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
-        
-        if not os.path.exists(self.config_path) or not self._load_config():
+
+        if not os.path.exists(self.config_path):
             self._create_default_config()
+        
+        if not self._load_config():
+            self._create_default_config()
+            self._load_config()  # Reload the default configuration
+
+        if not (self.config_parser.has_section('Workspace') and self.config_parser.has_section('Paths') and self.config_parser.has_section('Meld') and self.config_parser.has_section('Scan') and self.config_parser.has_section('Misc')):
+            self._create_default_config()
+            self._load_config()  # Reload the default configuration if required sections do not exist
 
         self.assign_requirements()
 
@@ -111,13 +119,12 @@ class Config:
         try:
             self.config_parser.read(self.config_path)
             return True
-        except configparser.ParsingError:
+        except configparser.Error:
             return False
-
     def _create_default_config(self):
         with open(self.config_path, 'w') as configfile:
             configfile.write(self.config_template)
-
+            
     def add_config_notes(self):
         with open(self.config_path, 'a') as file:
             if Config.docs:
