@@ -61,12 +61,44 @@ from melder import get_meld_path
 #     else:
 #         return None
 
+# TODO: Write an exception to create default config file ☑ Needs testing
+# TODO: Handle config file corruption with rewrite ☑ Needs testing
 class Config:
     docs = None
+    config_template = '''
+    [Scan]
+    deep_scan = False
+
+    [Paths]
+    source_pak_0 = data0.pak
+    source_pak_1 = data1.pak
+    mod_pak = 
+
+    [Workspace]
+    target = 
+
+    [Meld]
+    enable = True
+    path = 
+
+    [Backups]
+    enable = True
+    count = 10
+
+    [Misc]
+    overwrite_default = True
+    hide_unpacked_content = True
+    # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
+    # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
+    '''
+
     def __init__(self):
         self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
-        self.config_parser.read(self.config_path)
+        
+        if not os.path.exists(self.config_path) or not self._load_config():
+            self._create_default_config()
+
         self.assign_requirements()
 
         self.properties = [
@@ -74,6 +106,17 @@ class Config:
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
             'use_meld', 'backup_enabled', 'backup_count'
         ]
+
+    def _load_config(self):
+        try:
+            self.config_parser.read(self.config_path)
+            return True
+        except configparser.ParsingError:
+            return False
+
+    def _create_default_config(self):
+        with open(self.config_path, 'w') as configfile:
+            configfile.write(self.config_template)
 
     def add_config_notes(self):
         with open(self.config_path, 'a') as file:
