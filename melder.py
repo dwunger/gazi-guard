@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox
 import os, time, subprocess, shutil
 import configparser
+from utils import resource_path
+
 def add_config_notes():
     note = '''\n\n; NOTES
 ; Overwrite: 
@@ -78,9 +80,15 @@ def get_meld_path(meld_config_path=None):
         config.set('Meld', 'path', where_meld)
         with open('config.ini', 'w') as config_file:
             config.write(config_file)
-        add_config_notes()
+        # add_config_notes()
         return where_meld
-    else:
+    elif os.path.exists(resource_path("Meld/Meld.exe")):
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        config.set('Meld', 'path', resource_path("Meld/Meld.exe"))
+        with open('config.ini', 'w') as config_file:
+            config.write(config_file)
+        # add_config_notes()        
         return None
 def wait_for_meld_installation():
     # meld_path = "C:/Program Files/Meld/Meld.exe"
