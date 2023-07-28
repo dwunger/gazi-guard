@@ -10,8 +10,11 @@ from options_dialog import OptionsDialog
 from titlebar_widget import CustomTitleBar
 from utils import resource_path
 
-# TODO: restart main proc on settings update
-
+# TODO: Restart main proc on settings update
+# TODO: Distinguish file and directory update events for granular archive repacks
+# TODO: Experiment launching other diff tools from command line
+# TODO: Compare backups before shifting the stack for more efficient history of backups
+# TODO: Set keep on top as default
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -36,7 +39,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.init_main_proc()  # Start the backend process
         self.send_message(self.message.request('pid'))
     def setupUI(self):
-        self.setWindowTitle("Pak Tools")
+        self.setWindowTitle("Gazi Guard")
         self.resize(400, 150)  # Set the initial size of the window
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
 
