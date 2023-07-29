@@ -17,6 +17,8 @@ GaziGuard is provided as a Windows installable package through Inno Setup, compl
 ## Usage
 Upon installation, launch the GaziGuard application. You'll notice a system tray icon for controlling the application and an LED indicator that shows the repacking status of the mod. Your mod should `auto-magically` appear in the Meld visual diff editor.
 
+![GaziGuard UI Sample](https://github.com/dwunger/gazi-guard/blob/main/UI_sample.jpg?raw=true)
+
 ### Configuration
 GaziGuard uses heuristics to build its configuration file. Should it make any mistakes, be sure to set your preferences through the GUI settings. Point the tool to your mod script path by following these steps:
 
