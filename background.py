@@ -25,12 +25,43 @@ from logs import Logger
 #!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
 #TODO: Update status of repack in GUI - Done with some caveats. Would be best to centralize mod_pak status to class and handle updates internally
 
+
+# class FileChangeHandler(FileSystemEventHandler):
+#     """Handle file or directory modification."""
+#     def __init__(self, mod) -> None:
+#         self.mod = mod
+#         self.rate_limiter = RateLimitedNotifier()
+
+#     def on_modified(self, event):
+#         comms.send_message(comms.message.data('on_modified_event'))
+#         self.mod.status = 'desync'
+#         # Check if the modified file or directory is in the mod.unpacked_path
+#         if os.path.commonpath([self.mod.unpacked_path, event.src_path]) == self.mod.unpacked_path:
+#             # Get the relative path of the modified file or directory
+#             relative_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
+#             # Update archive with modified file or directory
+#             update_archive(event.src_path, self.mod.packed_path, relative_path, delay=0.2)
+#             self.mod.status = 'sync'
+#             self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
+#         else:
+#             self.mod.status = 'sync' 
+
+#     @staticmethod
+#     def _is_file_access_done(file_path):
+#         '''race condition with meld'''
+#         try:
+#             with open(file_path, 'r'):
+#                 return True
+#         except IOError:
+#             return False
+
 class FileChangeHandler(FileSystemEventHandler):
     # def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
-    def __init__(self, mod) -> None:
+    def __init__(self, mod, notifications) -> None:
         self.mod = mod
         # self.copy_to = copy_to
-        self.rate_limiter = RateLimitedNotifier()
+
+        self.rate_limiter = RateLimitedNotifier(enabled=notifications)
 
     def on_modified(self, event):
         # logger.log_variable("event", event)
@@ -42,10 +73,10 @@ class FileChangeHandler(FileSystemEventHandler):
                 # logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
                 # logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
                 update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
-                mod.status = 'sync'              
+                mod.status = 'sync'
                 # if self.copy_to:
                 #     update_archive(self.mod.unpacked_path, self.copy_to)
-                self.rate_limiter.notify(title='Pak Tools', message='Changes saved!')
+                self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
         mod.status = 'sync'    
     @staticmethod
     def _is_file_access_done(file_path):
@@ -82,14 +113,15 @@ class ModArchive:
 
 class ObserverHandler:
     # def __init__(self, mod_unpack_path, mod_pak, copy_to):
-    def __init__(self, mod):
+    def __init__(self, mod, notifications):
         self.mod = mod
         self.mod_unpack_path = mod.unpacked_path
         self.mod_pak = mod.packed_path
+        self.notifications = notifications
         # self.copy_to = copy_to
         self.file_observer = Observer()
         # self.event_handler = FileChangeHandler(mod_unpack_path=self.mod_unpack_path, mod_pak=self.mod_pak, copy_to=self.copy_to)
-        self.event_handler = FileChangeHandler(mod)
+        self.event_handler = FileChangeHandler(mod, notifications)
     def start(self):
         self.file_observer.schedule(self.event_handler, path=self.mod_unpack_path, recursive=True)
         self.file_observer.start()
@@ -119,15 +151,16 @@ def tray_thread():
     icon_path = 'icon64.ico'
     icon_image = Image.open(icon_path)
     # Create the system tray icon
-    icon = pystray.Icon('Pak Tools', icon_image, 'Pak Tools', menu=build_menu())
+    icon = pystray.Icon('Gazi Guard', icon_image, 'Gazi Guard', menu=build_menu())
     icon.run()
     
             
 def initialize_workspace():
+    #this was broke off from main() as no threading was necessary.
     config = Config()
     
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod.packed_path, overwrite_default, \
-        hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count = config.dump_settings()
+        hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count, notifications = config.dump_settings()
 
 
     # if not mod_path:
@@ -171,7 +204,7 @@ def initialize_workspace():
     
     set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod.unpacked_path)
 
-    return (merged_unpack_path, use_meld, meld_config_path, copy_to)
+    return (merged_unpack_path, use_meld, meld_config_path, copy_to, notifications)
 
 class CommsManager():
     def __init__(self):
@@ -240,7 +273,7 @@ class CommsManager():
             
 
 def main():
-    merged_unpack_path, use_meld, meld_config_path, copy_to = initialize_workspace()
+    merged_unpack_path, use_meld, meld_config_path, copy_to, notifications = initialize_workspace()
     # logger.log_variable("merged_unpack_path", merged_unpack_path)
     # logger.log_variable("use_meld", use_meld)
     # logger.log_variable("meld_config_path", meld_config_path)
@@ -256,7 +289,7 @@ def main():
     meld_pid = int(meld_handler.meld_process.pid)
     comms.send_message(comms.message.edior_pid(meld_pid))
     comms.send_message(comms.message.set('sync'))
-    observer_handler = ObserverHandler(mod) #removed copy_to
+    observer_handler = ObserverHandler(mod, notifications) #removed copy_to
     observer_handler.start()
     
     try:

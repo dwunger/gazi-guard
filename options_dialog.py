@@ -48,13 +48,14 @@ class OptionsDialog(QtWidgets.QDialog):
                 continue
 
             # Create QLabel for each setting (if it's not a checkbox)
-            if setting not in ['deep_scan', 'overwrite_default', 'hide_unpacked_content', 'use_meld', 'backup_enabled']:
+            if setting not in ['deep_scan', 'overwrite_default', 'hide_unpacked_content', 'use_meld', 'backup_enabled',
+                'notifications']:
                 label = QtWidgets.QLabel(setting.replace('_', ' ').title(), self)
                 label.setAlignment(QtCore.Qt.AlignLeft)
                 self.layout.addWidget(label)
 
             # Create the appropriate field widget based on the setting type
-            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default', 'notifications']:
                 field = QtWidgets.QCheckBox(setting.replace('_', ' ').title(), self)
                 field.setChecked(getattr(self.config, setting))
             elif setting in ['source_pak_0', 'source_pak_1', 'mod_pak']:
@@ -110,7 +111,7 @@ class OptionsDialog(QtWidgets.QDialog):
         # Update settings values when 'Apply' button is clicked
         for setting in self.config.properties:
             field = getattr(self, f'{setting}_field')
-            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default', 'notifications']:
                 setattr(self.config, setting, field.isChecked())
             elif isinstance(field, QtWidgets.QLineEdit):
                 setattr(self.config, setting, field.text())
