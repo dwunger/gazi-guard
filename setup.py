@@ -21,7 +21,7 @@ run_pyinstaller(main_script, '--icon="icon64.ico" --noconsole --noconfirm')
 # run_pyinstaller(background_script, "--noconsole --noconfirm")
 
 # Build the background script with a different destination folder
-run_pyinstaller(background_script, "--distpath background_output --noconfirm")
+run_pyinstaller(background_script, "--distpath dist/background_output --noconfirm")
 
 # Get the datetime stamp
 datetime_stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")

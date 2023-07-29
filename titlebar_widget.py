@@ -1,22 +1,48 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui 
 
 class CustomTitleBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedHeight(30)  # Adjust the height as needed
-        self.setStyleSheet("background-color: #999999; color: white;")
+        self.setStyleSheet("background-color: #BEC2C4; color: white;")
+
+        # Color variables
+        self.base_color = '#BEC2C4'
+        self.title_text_color = '#000000'
+        self.button_text_color = '#000000'
+        self.hover_color = '#CCCCCC'
+        self.pressed_color = '#888888'
+
+        # Load "Bebas Neue" font
+        font = QtGui.QFont("Bebas Neue", 9)    
+        font.setFamily("Bebas Neue")
+        font.setPointSize(8)
+        font.setWeight(QtGui.QFont.Thin)  # Set the font weight to Thin
+        font.setStretch(145)  # Set the vertical stretch to 125%
+
+
+        # Set the color of the text
+        text_color = QtGui.QColor(255, 0, 0)  # Red color (R, G, B)
+        palette = QtGui.QPalette()
+        palette.setColor(QtGui.QPalette.Text, text_color)
 
         # Create the title label
         self.titleLabel = QtWidgets.QLabel(self)
-        self.titleLabel.setText("  Pak Merge Tool")
-        self.titleLabel.setAlignment(QtCore.Qt.AlignVCenter)
-        # self.titleLabel.setAlignment(QtCore.Qt.AlignLeft)
+        self.titleLabel.setText("  Gazi  Guard")
+        # self.titleLabel.setStyleSheet("color: rgb(225,57,53)")        
+        self.titleLabel.setStyleSheet(f"color: {self.title_text_color};")  # Set the text color directly
 
+
+        self.titleLabel.setAlignment(QtCore.Qt.AlignVCenter)
+        self.titleLabel.setFont(font) 
+        # self.titleLabel.setPalette(palette)
+        
         # Create the minimize button
         self.minimizeButton = QtWidgets.QPushButton(self)
         self.minimizeButton.setText("_")
         self.minimizeButton.setFixedSize(30, 30)
         self.minimizeButton.clicked.connect(self.onMinimizeClicked)  
+
 
         # Create the close button
         self.closeButton = QtWidgets.QPushButton(self)
@@ -25,23 +51,24 @@ class CustomTitleBar(QtWidgets.QWidget):
         self.closeButton.clicked.connect(self.onCloseClicked)  
         
         self.startPosition = None #Dealing with AttributeError: 'CustomTitleBar' object has no attribute 'startPosition'
-        # Create a common style sheet for the buttons
-        buttonStyle = """
-            QPushButton {
-                background-color: #999999;
-                color: #FFFFFF;
+
+        # Create the style sheet for the buttons
+        buttonStyle = f"""
+            QPushButton {{
+                background-color: {self.base_color};
+                color: {self.button_text_color};
                 border: none;
                 padding: 0;
                 margin: 0;
-            }
-            QPushButton:hover {
-                background-color: #CCCCCC;
-            }
-            QPushButton:pressed {
-                background-color: #888888;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {self.hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {self.pressed_color};
+            }}
         """
-        # self.titleLabel.setStyleSheet("background-color: transparent;")
+        
         self.titleLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         
         # Apply the style sheet to the minimize and close buttons
@@ -51,9 +78,7 @@ class CustomTitleBar(QtWidgets.QWidget):
         # Create the layout for the title bar
         layout = QtWidgets.QHBoxLayout(self)
 
-        # layout.setStyleSheet("background-color: #999999;")
         layout.addWidget(self.titleLabel)
-        # layout.addStretch()
 
         layout.addWidget(self.minimizeButton)
         layout.addWidget(self.closeButton)
@@ -67,7 +92,7 @@ class CustomTitleBar(QtWidgets.QWidget):
 
     def mouseMoveEvent(self, event):
         if self.startPosition is None:
-            return  #Dealing with AttributeError: 'CustomTitleBar' object has no attribute 'startPosition'
+            return
 
         movePosition = self.mapToGlobal(event.pos())
         diff = movePosition - self.startPosition
