@@ -89,6 +89,7 @@ class Config:
     [Misc]
     overwrite_default = True
     hide_unpacked_content = True
+    notifications = True
     # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
     # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
     '''
@@ -112,7 +113,7 @@ class Config:
         self.properties = [
             'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
-            'use_meld', 'backup_enabled', 'backup_count'
+            'use_meld', 'backup_enabled', 'backup_count', 'notifications'
         ]
 
     def _load_config(self):
@@ -253,7 +254,16 @@ class Config:
     def backup_enabled(self, value):
         self.config_parser.set('Backups', 'enable', str(value))
         self.save_config()
+    @property
+    def notifications(self):
+        """Bool: Create backup of mod_pak on startup"""
+        return self.config_parser.getboolean('Misc', 'notifications')
     
+    @notifications.setter
+    def notifications(self, value):
+        self.config_parser.set('Misc', 'notifications', str(value))
+        self.save_config()
+        
     @property
     def backup_count(self):
         """Int: Number of rolling backups for backup manager to retain"""
@@ -285,7 +295,7 @@ class Config:
             self.target_workspace, self.copy_to, self.deep_scan, self.source_pak_0,
             self.source_pak_1, self.mod_pak, self.overwrite_default,
             self.hide_unpacked_content, self.meld_config_path, self.use_meld,
-            self.backup_enabled, self.backup_count
+            self.backup_enabled, self.backup_count, self.notifications
         )
 
 # config = Config()
