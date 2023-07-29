@@ -43,8 +43,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def setupUI(self):
         self.setWindowTitle("Gazi Guard")
         self.resize(400, 150)  # Set the initial size of the window
-        self.setWindowFlag(QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
-
+        
+        self.config = Config()
+        if self.config.always_on_top:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
+        else:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint)
         self.createTitleBar()
         self.createToolbar()
         self.createLEDLayout()
@@ -120,9 +124,12 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.exec_()
 
         # Restore the "Keep on top" flag
-        if dialog.keepOnTopButton.isChecked():
+        if self.config.always_on_top:
+            self.config.always_on_top = True
             self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
             self.show()
+        else:
+            self.config.always_on_top = False
 
     def send_message(self, message):
         if self.backend_process is not None and self.backend_process.state() == QProcess.Running:
