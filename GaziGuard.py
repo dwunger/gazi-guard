@@ -19,6 +19,8 @@ from utils import resource_path
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    toolbar_background_color = 'E9EDEF'
+    central_widget_background_color = 'F2F6F8'
     def __init__(self):
         super().__init__()
 
@@ -43,7 +45,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def setupUI(self):
         self.setWindowTitle("Gazi Guard")
         self.resize(400, 150)  # Set the initial size of the window
-        
+
+
+
         self.config = Config()
         if self.config.always_on_top:
             self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)  # Remove the native window frame
@@ -53,15 +57,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.createToolbar()
         self.createLEDLayout()
 
+
     def createTitleBar(self):
         titleBar = CustomTitleBar(self)
         self.setMenuWidget(titleBar)
 
     def createToolbar(self):
         toolbar = QtWidgets.QToolBar(self)
+        toolbar.setStyleSheet(f"background-color: #{self.toolbar_background_color};  border: none; padding: 2px;")
         toolbar.setMovable(False)  # Disable toolbar movement
         self.addToolBar(toolbar)
-
+        # toolbar.setFocusPolicy(QtCore.Qt.NoFocus)  # Disable focus outline
         # self.createToggleLEDButton(toolbar)
         self.createFileMenuButton(toolbar)
 
@@ -78,7 +84,22 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.addAction(action3)
 
         menu_button = QtWidgets.QToolButton(toolbar)
-        menu_button.setStyleSheet("QToolButton::menu-indicator { image: none; }")  # Remove the menu indicator arrow
+        menu_button.setStyleSheet("""QToolButton::menu-indicator { image: none; }
+                                      QToolButton:hover {
+                                        background-color: #C2C9CC;
+                                        padding: 0px;
+                                        border: 0px;
+                                        margin: 0px;
+                                        
+                                    }
+                                    QToolButton:pressed {
+                                        background-color: #A6B2B8;
+                                        padding: 0px;
+                                        border: 0px;
+                                        margin: 0px;
+                                    }
+                                  
+                                  """)  # Remove the menu indicator arrow
         menu_button.setMenu(menu)
         menu_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         menu_button.setText("File")
@@ -103,6 +124,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         central_widget = QtWidgets.QWidget()
         central_widget.setLayout(main_layout)
+                # Set the background color specifically for the central widget
+
+        central_widget.setStyleSheet(f"background-color: #{self.central_widget_background_color};")
+
         self.setCentralWidget(central_widget)
 
     def onPressButton(self):
