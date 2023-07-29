@@ -8,7 +8,7 @@ class CustomTitleBar(QtWidgets.QWidget):
 
         # Create the title label
         self.titleLabel = QtWidgets.QLabel(self)
-        self.titleLabel.setText("  Pak Merge Tool")
+        self.titleLabel.setText("  Gazi Guard")
         self.titleLabel.setAlignment(QtCore.Qt.AlignVCenter)
         # self.titleLabel.setAlignment(QtCore.Qt.AlignLeft)
 
