@@ -76,17 +76,17 @@ def get_meld_path(meld_config_path=None):
     where_meld = shutil.which('meld')
     if where_meld:
         config = configparser.ConfigParser()
-        config.read('config.ini')
+        config.read(resource_path('config.ini'))
         config.set('Meld', 'path', where_meld)
-        with open('config.ini', 'w') as config_file:
+        with open(resource_path('config.ini', 'w')) as config_file:
             config.write(config_file)
         # add_config_notes()
         return where_meld
     elif os.path.exists(resource_path("Meld/Meld.exe")):
         config = configparser.ConfigParser()
-        config.read('config.ini')
+        config.read(resource_path('config.ini'))
         config.set('Meld', 'path', resource_path("Meld/Meld.exe"))
-        with open('config.ini', 'w') as config_file:
+        with open(resource_path('config.ini'), 'w') as config_file:
             config.write(config_file)
         # add_config_notes()        
         return None
