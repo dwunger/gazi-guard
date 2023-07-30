@@ -49,13 +49,41 @@ def guess_workspace_path():
         return None
 
 
+# def resource_path(relative_path):
+#     """standardize relative references"""
+    
+#     try:
+#         base_path = sys._MEIPASS
+#     except Exception:
+#         base_path = os.path.abspath(".")
+#     return os.path.join(base_path, relative_path)
+
+
 def resource_path(relative_path):
     """standardize relative references"""
+    
+    # List of file names to be redirected to AppData
+    redirect_files = ['config.ini', 'mylog.log']
+
+    # Check if the relative_path is in the list
+    if os.path.basename(relative_path) in redirect_files:
+        # Redirect to the AppData folder
+        appdata_path = os.getenv('APPDATA')
+        new_path = os.path.join(appdata_path, 'GaziGuard', relative_path)
+
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
+        return new_path
+
+    # If the path is not in the list, fall back to the old behavior
     try:
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
+
     return os.path.join(base_path, relative_path)
+
 
 
 def get_int_date():

@@ -11,3 +11,6 @@ dist/
 background_output/
 distro/
 Uploaded Compiled Versions/
+requirements.txt
+Output/
+venv/

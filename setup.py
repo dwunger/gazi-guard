@@ -26,11 +26,16 @@ run_pyinstaller(background_script, "--distpath dist/background_output --noconfir
 # Get the datetime stamp
 datetime_stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
+#remove last build
+merged_output_folder = Path(f"dist/merged_output")
+if os.path.exists(merged_output_folder):
+    shutil.rmtree(merged_output_folder)
+
 # Merge the contents of the three resulting folders into one single folder
 main_dist_folder = Path("dist")
 background_dist_folder = Path("dist/background_output")
-merged_output_folder = Path(f"dist/merged_output_{datetime_stamp}")
-
+# merged_output_folder = Path(f"dist/merged_output_{datetime_stamp}")
+# merged_output_folder = Path(f"dist/merged_output")
 # Copy the main script files
 copy_tree(str(main_dist_folder / main_script.split(".")[0]), str(merged_output_folder))
 
@@ -43,12 +48,12 @@ for file in merged_output_folder.rglob("__pycache__"):
 
 # Copy the icon and config.ini files to the merged output folder
 shutil.copy("icon64.ico", str(merged_output_folder))
-shutil.copy("config.ini", str(merged_output_folder))
+
 
 # Create the setup for the merged folder
 setup(
     name="GaziGuard",
-    version="1.0",
+    version="1.0.2",
     packages=[],
     scripts=[],
 )
