@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import os, time, subprocess, shutil
-import configparser
+
 from utils import resource_path
 
 def add_config_notes():
@@ -50,7 +50,6 @@ def prompt_delete_backups(message):
     
     return response
 
-
 def prompt_to_restart():
     root = tk.Tk()
     root.withdraw()
@@ -65,31 +64,36 @@ def prompt_to_restart():
     
     return response
 
-
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
     return subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
 
+# def set_meld_path(meld_path):
+#     config = configparser.ConfigParser()
+#     config.read(resource_path('config.ini'))
+#     config.set('Meld', 'path', meld_path)
+#     with open(resource_path('config.ini'), 'w') as config_file:
+#         config.write(config_file)
+# def set_meld_path(meld_path):
+#     config = Config()
+#     config.meld_config_path = meld_path
+
 def get_meld_path(meld_config_path=None):
     if meld_config_path:
-        return meld_config_path    
-    where_meld = shutil.which('meld')
-    if where_meld:
-        config = configparser.ConfigParser()
-        config.read(resource_path('config.ini'))
-        config.set('Meld', 'path', where_meld)
-        with open(resource_path('config.ini', 'w')) as config_file:
-            config.write(config_file)
-        # add_config_notes()
-        return where_meld
-    elif os.path.exists(resource_path("Meld/Meld.exe")):
-        config = configparser.ConfigParser()
-        config.read(resource_path('config.ini'))
-        config.set('Meld', 'path', resource_path("Meld/Meld.exe"))
-        with open(resource_path('config.ini'), 'w') as config_file:
-            config.write(config_file)
-        # add_config_notes()        
-        return None
+        return meld_config_path
+    program_files = os.environ.get('PROGRAMFILES')
+    program_files_x86 = os.environ.get('PROGRAMFILES(X86)')
+    possible_paths = [
+        shutil.which('meld'),
+        os.path.join(program_files, 'Meld/Meld.exe') if program_files else None,
+        os.path.join(program_files_x86, 'Meld/Meld.exe') if program_files_x86 else None
+    ]
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            # set_meld_path(path)
+            return path
+            
+    return None
 def wait_for_meld_installation():
     # meld_path = "C:/Program Files/Meld/Meld.exe"
     # meld_installed = os.path.exists(meld_path)
