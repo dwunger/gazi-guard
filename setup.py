@@ -48,12 +48,12 @@ for file in merged_output_folder.rglob("__pycache__"):
 
 # Copy the icon and config.ini files to the merged output folder
 shutil.copy("icon64.ico", str(merged_output_folder))
-shutil.copy("config.ini", str(merged_output_folder))
+
 
 # Create the setup for the merged folder
 setup(
     name="GaziGuard",
-    version="1.0",
+    version="1.0.2",
     packages=[],
     scripts=[],
 )
