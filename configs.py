@@ -89,7 +89,7 @@ class Config:
     [Misc]
     overwrite_default = True
     hide_unpacked_content = True
-    notifications = True
+    notifications = False
     always_on_top = True
     # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
     # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
