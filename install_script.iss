@@ -1,7 +1,7 @@
 [Setup]
 AppId={{C7A4B040-273A-45E3-B223-C8C47A987544}}
 AppName=GaziGuard
-AppVersion=1.0.1
+AppVersion=1.0.2
 DefaultDirName={pf}\GaziGuard
 DefaultGroupName=GaziGuard
 UninstallDisplayIcon={app}\icon64.ico
@@ -10,7 +10,7 @@ Compression=lzma
 SolidCompression=yes
 
 [Files]
-Source: "C:\Users\dento\Desktop\Python_Projects\modding\dl2\gazi-guard\dist\merged_output_20230729191406\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\dento\Desktop\Python_Projects\modding\dl2\gazi-guard\dist\merged_output\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "C:\Program Files\Meld\*"; DestDir: "{pf}\Meld"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
