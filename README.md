@@ -43,7 +43,7 @@ Upon execution, the script generates two directories (hidden by default):
 
 ## Build from source
 1. Pip install all requirements:
-   * `test.py` will dump such a list of requirements, but will need pruning
+   * `python test.py` will dump such a list of requirements, but will need pruning
 2. Build the executables:
    * Run `python setup.py` → Binaries build to `dist/merged_output_%timestamp%`
 3. Create an installer (optional):
