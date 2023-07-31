@@ -1,7 +1,8 @@
 import configparser
-from utils import resource_path, guess_workspace_path, guess_mod_pack_path
+from utils import resource_path, guess_workspace_path, guess_mod_pack_path, contains
 from melder import get_meld_path
 import os
+from logs import Logger
 #FOR REFERENCE:
 # def generate_steam_paths():
 #     drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -46,22 +47,6 @@ import os
 #         base_path = os.path.abspath(".")
 #     return os.path.join(base_path, relative_path)
 
-
-# def get_meld_path(meld_config_path=None):
-#     if meld_config_path:
-#         return meld_config_path    
-#     where_meld = shutil.which('meld')
-#     if where_meld:
-#         config = configparser.ConfigParser()
-#         config.read('config.ini')
-#         config.set('Meld', 'path', where_meld)
-#         with open('config.ini', 'w') as config_file:
-#             config.write(config_file)
-#         add_config_notes()
-#         return where_meld
-#     else:
-#         return None
-
 # TODO: Write an exception to create default config file ☑ Needs testing
 # TODO: Handle config file corruption with rewrite ☑ Needs testing
 class Config:
@@ -69,7 +54,9 @@ class Config:
     config_template = '''
     [Scan]
     deep_scan = False
-
+    force_refresh_source_scripts = False
+    force_refresh_mod_scripts = False
+    
     [Paths]
     source_pak_0 = data0.pak
     source_pak_1 = data1.pak
@@ -93,30 +80,60 @@ class Config:
     always_on_top = True
     # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
     # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
+    #
+    # *Refresh source/mod scripts* and *deep scan* are two ways of addressing the same problem:
+    #
+    #   Source/Mod scripts are missing or have changed from data0.pak or data1.pak.
+    #   * Refreshing source/mod scripts gathers all the scripts freshly. (Slow)
+    #
+    #   * Deep scan attempts to identify missing/changed scripts in source script AND mod
+    #     scripts and adds or overwrites as needed. 
+    #
+    #   * WARNING
+    #   * BOTH options (refresh_mod_scripts & deep_scan) will OVERWRITE your unpacked mod folder. 
+    #     Make sure you have repacked your mod before continuing.
     '''
     def __init__(self):
         self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
-
-        if not os.path.exists(self.config_path):
-            self._create_default_config()
-        
-        if not self._load_config():
-            self._create_default_config()
-            self._load_config()  # Reload the default configuration
-
-        if not (self.config_parser.has_section('Workspace') and self.config_parser.has_section('Paths') and self.config_parser.has_section('Meld') and self.config_parser.has_section('Scan') and self.config_parser.has_section('Misc')):
-            self._create_default_config()
-            self._load_config()  # Reload the default configuration if required sections do not exist
-
-        self.assign_requirements()
+        self.logger = Logger()
 
         self.properties = [
-            'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
+            'target_workspace', 'deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'source_pak_0', 'source_pak_1',
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
             'use_meld', 'backup_enabled', 'backup_count', 'notifications', 'always_on_top'
         ]
+        
+        self.sections = ['Workspace', 'Paths', 'Meld', 'Scan', 'Misc']
+        
+        #Some initialization logic to handle missing, corrupt, out-of-date config.ini file
+        if not os.path.exists(self.config_path):
+            self.logger.log_warning('os.path.exists(self.config_path) = False')
+            self._create_default_config()
+        
+        if not self._load_config():
+            self.logger.log_warning('self._load_config() = False')
+            self._create_default_config()
+            self._load_config()  # Reload the default configuration
 
+        if self._has_valid_sections_and_properties():
+            self.logger.log_warning('self._validate_sections_and_properties = False')
+            self._create_default_config()
+            self._load_config()  # Reload the default configuration if required sections or properties do not exist
+
+        self.assign_requirements()
+        
+    def _has_valid_sections_and_properties(self):
+        """
+        Validates that all necessary sections and properties are present in the configuration.
+        """
+        for section in self.sections:
+            if not self.config_parser.has_section(section):
+                return False
+        for property in self.properties:
+            if not contains(self.config_path, property):
+                return False
+        return True
     def _load_config(self):
         try:
             self.config_parser.read(self.config_path)
@@ -154,7 +171,24 @@ class Config:
         self.config_parser.set('Workspace', 'target', value)
         self.save_config()
 
-
+    @property
+    def force_refresh_source_scripts(self):
+        return self.config_parser.getboolean('Scan', 'force_refresh_source_scripts')
+    
+    @force_refresh_source_scripts.setter
+    def force_refresh_source_scripts(self, value):
+        self.config_parser.set('Scan', 'force_refresh_source_scripts', str(value))
+        self.save_config()
+        
+    @property
+    def force_refresh_mod_scripts(self):
+        return self.config_parser.getboolean('Scan', 'force_refresh_mod_scripts')
+    
+    @force_refresh_mod_scripts.setter
+    def force_refresh_mod_scripts(self, value):
+        self.config_parser.set('Scan', 'force_refresh_mod_scripts', str(value))
+        self.save_config()
+        
     @property
     def copy_to(self):
         """No official support. Manages copy of repacked mod at path"""
