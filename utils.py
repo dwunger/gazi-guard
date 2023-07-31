@@ -36,6 +36,29 @@ def guess_mod_pack_path(target_workspace):
     else:
         return None
         
+def contains(file_path, search_string):
+    """
+    Search for a matching string in a text document.
+
+    This function opens the specified text file, reads it line by line, and checks
+    if the given search string is present in any of the lines.
+
+    Parameters:
+        file_path (str): The path to the text document to search in.
+        search_string (str): The string to search for in the text document.
+
+    Returns:
+        bool: True if the search string is found in the document, False otherwise.
+    """
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                if search_string in line:
+                    return True
+        return False
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return False
 
 def guess_workspace_path():
     steam_paths = generate_steam_paths()
