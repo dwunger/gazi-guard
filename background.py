@@ -64,15 +64,15 @@ class FileChangeHandler(FileSystemEventHandler):
         self.rate_limiter = RateLimitedNotifier(enabled=notifications)
 
     def on_modified(self, event):
-        # logger.log_variable("event", event)
+        logger.log_variable("event", event)
         comms.send_message(comms.message.data('on_modified_event'))
         mod.status = 'desync'
         if not event.is_directory:
             # Check if the modified file is in the mod.unpacked_path
             if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
-                # logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
-                # logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
-                update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
+                logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
+                logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
+                update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
                 mod.status = 'sync'
                 # if self.copy_to:
                 #     update_archive(self.mod.unpacked_path, self.copy_to)
@@ -158,9 +158,9 @@ def tray_thread():
 def initialize_workspace():
     #this was broke off from main() as no threading was necessary.
     config = Config()
-    
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod.packed_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count, notifications = config.dump_settings()
+
 
 
     # if not mod_path:
@@ -189,7 +189,12 @@ def initialize_workspace():
     source_pak_1 = os.path.join(target_workspace, source_pak_1)
     mod.unpacked_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod.packed_path)}_mod_scripts")
     merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod.packed_path)}_source_scripts')
-    
+    if config.force_refresh_mod_scripts:
+        logger.log_warning('Force Refresh Mod Enabled! Deleting Unpacked Mod Scripts')
+        shutil.rmtree(mod.unpacked_path)   
+    if config.force_refresh_source_scripts:
+        logger.log_warning('Force Refresh Source Enabled! Deleting Source Scripts')
+        shutil.rmtree(merged_unpack_path)   
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
                          " Try running from ./steamapps/common/Dying Light 2/ph/source/"
                          
