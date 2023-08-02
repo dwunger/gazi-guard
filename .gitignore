@@ -11,3 +11,7 @@ dist/
 background_output/
 distro/
 Uploaded Compiled Versions/
+Output/
+requirements.txt
+venv/
+GaziGuard.lnk
