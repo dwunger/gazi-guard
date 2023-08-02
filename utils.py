@@ -1,5 +1,42 @@
 import sys 
 import os
+import tkinter as tk
+from tkinter import filedialog
+
+
+def file_selector_dialog(message, file_extension=None, file_type_description=None):
+    """
+    message (str):
+    -----------
+        'Please select a file/folder'
+
+    file_extension (str, optional):
+    -----------
+        ".txt", ".rar", or omit.
+        Omission will prompt selection of folder
+
+    file_type_description (str, optional):
+    -----------
+        "Text file", "RAR archive", etc...
+        Description of the file type shown in the dialog 
+        
+    Returns:
+    --------
+    String of path or None
+    """
+    root = tk.Tk()
+    root.withdraw()  # Hide the main application window
+
+    if file_extension and file_type_description:
+        file_path = filedialog.askopenfilename(
+            title=message,
+            filetypes=((file_type_description, file_extension), ("All files", "*.*"))
+        )
+    else:
+        file_path = filedialog.askdirectory(title=message)
+
+    return file_path
+
 
 def progressbar(it, prefix="", size=60, out=sys.stdout):
     #left for reference, but no longer needed
@@ -36,6 +73,29 @@ def guess_mod_pack_path(target_workspace):
     else:
         return None
         
+def contains(file_path, search_string):
+    """
+    Search for a matching string in a text document.
+
+    This function opens the specified text file, reads it line by line, and checks
+    if the given search string is present in any of the lines.
+
+    Parameters:
+        file_path (str): The path to the text document to search in.
+        search_string (str): The string to search for in the text document.
+
+    Returns:
+        bool: True if the search string is found in the document, False otherwise.
+    """
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                if search_string in line:
+                    return True
+        return False
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return False
 
 def guess_workspace_path():
     steam_paths = generate_steam_paths()
@@ -49,13 +109,41 @@ def guess_workspace_path():
         return None
 
 
+# def resource_path(relative_path):
+#     """standardize relative references"""
+    
+#     try:
+#         base_path = sys._MEIPASS
+#     except Exception:
+#         base_path = os.path.abspath(".")
+#     return os.path.join(base_path, relative_path)
+
+
 def resource_path(relative_path):
     """standardize relative references"""
+    
+    # List of file names to be redirected to AppData
+    redirect_files = ['config.ini', 'LOG_INFO.log']
+
+    # Check if the relative_path is in the list
+    if os.path.basename(relative_path) in redirect_files:
+        # Redirect to the AppData folder
+        appdata_path = os.getenv('APPDATA')
+        new_path = os.path.join(appdata_path, 'GaziGuard', relative_path)
+
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
+        return new_path
+
+    # If the path is not in the list, fall back to the old behavior
     try:
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
+
     return os.path.join(base_path, relative_path)
+
 
 
 def get_int_date():
