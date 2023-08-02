@@ -103,7 +103,9 @@ class Config:
             'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
             'use_meld', 'backup_enabled', 'backup_count', 'notifications', 'always_on_top'
         ]
-        
+        self.properties_strings = ['deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'source_pak_0', 'source_pak_1', 'mod_pak', 'target', 'enable', 'path', 'enable', 'count', 'overwrite_default', 'hide_unpacked_content', 'notifications', 'always_on_top']
+
+
         self.sections = ['Workspace', 'Paths', 'Meld', 'Scan', 'Misc']
         
         #Some initialization logic to handle missing, corrupt, out-of-date config.ini file
@@ -116,24 +118,25 @@ class Config:
             self._create_default_config()
             self._load_config()  # Reload the default configuration
 
-        if self._has_valid_sections_and_properties():
-            self.logger.log_warning('self._validate_sections_and_properties = False')
+        if self._has_invalid_sections_and_properties():
+            self.logger.log_warning('self._has_invalid_sections_and_properties = True')
             self._create_default_config()
             self._load_config()  # Reload the default configuration if required sections or properties do not exist
 
         self.assign_requirements()
         
-    def _has_valid_sections_and_properties(self):
+    def _has_invalid_sections_and_properties(self):
         """
         Validates that all necessary sections and properties are present in the configuration.
         """
         for section in self.sections:
             if not self.config_parser.has_section(section):
-                return False
-        for property in self.properties:
+                return True
+
+        for property in self.properties_strings:
             if not contains(self.config_path, property):
-                return False
-        return True
+                return True
+        return False
     def _load_config(self):
         try:
             self.config_parser.read(self.config_path)
@@ -152,22 +155,30 @@ class Config:
         with open(self.config_path, 'w') as config_file:
             self.config_parser.write(config_file)            
     def assign_requirements(self):
-        if self.config_parser.get('Workspace', 'target')=='':
+        
+        if self.target_workspace == None:
             self.target_workspace = guess_workspace_path()
-        if self.config_parser.get('Paths', 'mod_pak') == '':
+        if self.mod_pak == None:
             self.mod_pak = guess_mod_pack_path(self.target_workspace)
             
-        if self.meld_config_path == '':
+        if self.meld_config_path == None:
             self.meld_config_path = get_meld_path()
         self.save_config()
 
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return resource_path(self.config_parser.get('Workspace', 'target'))
+        target = self.config_parser.get('Workspace', 'target')
+        if target == '':
+            return None
+        else:
+            return resource_path(target)
+
 
     @target_workspace.setter
     def target_workspace(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Workspace', 'target', value)
         self.save_config()
 
@@ -228,14 +239,20 @@ class Config:
     def source_pak_1(self, value):
         self.config_parser.set('Paths', 'source_pak_1', value)
         self.save_config()
-    
+
     @property
     def mod_pak(self):
         """Str: Path to dataX.pak"""
-        return self.config_parser.get('Paths', 'mod_pak')
-    
+        mod = self.config_parser.get('Paths', 'mod_pak')
+        if mod == '':
+            return None
+        else:
+            return mod
+
     @mod_pak.setter
     def mod_pak(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Paths', 'mod_pak', value)
         self.save_config()
 
@@ -260,13 +277,22 @@ class Config:
         self.config_parser.set('Misc', 'hide_unpacked_content', str(value))
         self.save_config()
     
+    # @property
+    # def meld_config_path(self):
+    #     """Path to Meld as per config.ini. Falls back to None"""
+    #     return self.config_parser.get('Meld', 'path', fallback=None)
     @property
     def meld_config_path(self):
-        """Path to Meld as per config.ini. Falls back to None"""
-        return self.config_parser.get('Meld', 'path', fallback=None)
-    
+        """Str: Path to dataX.pak"""
+        path = self.config_parser.get('Meld', 'path')
+        if path == '':
+            return None
+        else:
+            return path
     @meld_config_path.setter
     def meld_config_path(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Meld', 'path', value)
         self.save_config()
     
