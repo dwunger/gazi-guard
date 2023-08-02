@@ -28,14 +28,14 @@ class OptionsDialog(QtWidgets.QDialog):
 
 
         # Create the 'Keep on top' toggle button
-        self.keepOnTopButton = QtWidgets.QCheckBox("Keep on top", self)
-        self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
+        # self.keepOnTopButton = QtWidgets.QCheckBox("Keep on top", self)
+        # self.keepOnTopButton.toggled.connect(self.onKeepOnTopToggled)
 
         # Create the main layout for the dialog
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.setContentsMargins(2, 0, 2, 2)  # Remove margins
         self.layout.addWidget(titleBar)
-        self.layout.addWidget(self.keepOnTopButton)
+        # self.layout.addWidget(self.keepOnTopButton)
 
     def initSettingsFields(self):
         # Generate form fields for each setting
@@ -48,13 +48,15 @@ class OptionsDialog(QtWidgets.QDialog):
                 continue
 
             # Create QLabel for each setting (if it's not a checkbox)
-            if setting not in ['deep_scan', 'overwrite_default', 'hide_unpacked_content', 'use_meld', 'backup_enabled']:
+            if setting not in ['deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'overwrite_default', 'hide_unpacked_content', 'use_meld', 'backup_enabled',
+                'notifications', 'always_on_top']:
                 label = QtWidgets.QLabel(setting.replace('_', ' ').title(), self)
                 label.setAlignment(QtCore.Qt.AlignLeft)
                 self.layout.addWidget(label)
 
             # Create the appropriate field widget based on the setting type
-            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+            if setting in ['deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default',
+                           'notifications', 'always_on_top']:
                 field = QtWidgets.QCheckBox(setting.replace('_', ' ').title(), self)
                 field.setChecked(getattr(self.config, setting))
             elif setting in ['source_pak_0', 'source_pak_1', 'mod_pak']:
@@ -110,7 +112,7 @@ class OptionsDialog(QtWidgets.QDialog):
         # Update settings values when 'Apply' button is clicked
         for setting in self.config.properties:
             field = getattr(self, f'{setting}_field')
-            if setting in ['deep_scan', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default']:
+            if setting in ['deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'use_meld', 'backup_enabled', 'hide_unpacked_content', 'overwrite_default', 'notifications', 'always_on_top']:
                 setattr(self.config, setting, field.isChecked())
             elif isinstance(field, QtWidgets.QLineEdit):
                 setattr(self.config, setting, field.text())

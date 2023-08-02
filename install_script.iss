@@ -16,6 +16,7 @@ Source: "C:\Program Files\Meld\*"; DestDir: "{pf}\Meld"; Flags: ignoreversion re
 [Icons]
 Name: "{group}\GaziGuard"; Filename: "{app}\GaziGuard.exe"; IconFilename: "{app}\icon64.ico"
 Name: "{group}\Uninstall GaziGuard"; Filename: "{uninstallexe}"; IconFilename: "{app}\icon64.ico"
+
 [Code]
 
 var

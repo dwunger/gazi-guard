@@ -17,6 +17,8 @@ GaziGuard is provided as a Windows installable package through Inno Setup, compl
 ## Usage
 Upon installation, launch the GaziGuard application. You'll notice a system tray icon for controlling the application and an LED indicator that shows the repacking status of the mod. Your mod should `auto-magically` appear in the Meld visual diff editor.
 
+![GaziGuard UI Sample](https://github.com/dwunger/gazi-guard/blob/main/UI_sample.jpg?raw=true)
+
 ### Configuration
 GaziGuard uses heuristics to build its configuration file. Should it make any mistakes, be sure to set your preferences through the GUI settings. Point the tool to your mod script path by following these steps:
 
@@ -38,6 +40,15 @@ Upon execution, the script generates two directories (hidden by default):
 
 1. `Unpacked/mod_scripts/` - Contains the unpacked files from your mod.
 2. `Unpacked/source_scripts/` - Contains the unpacked files from the base game's data.pak.
+
+## Build from source
+1. Pip install all requirements:
+   * `python test.py` will dump such a list of requirements, but will need pruning
+2. Build the executables:
+   * Run `python setup.py` → Binaries build to `dist/merged_output_%timestamp%`
+3. Create an installer (optional):
+   * Update `install_script.iss` with the build path to the new binaries and compile!
+   * This will require an existing installation of Meld.
 
 ## Limitations
 GaziGuard assumes that your target workspace contains data0.pak, data1.pak, and your mod following this naming scheme. On initial setup, the tool will pick the lower data index as your mod. If the archive names in your setup are different, you will need to make this change in the options.

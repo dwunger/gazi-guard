@@ -1,7 +1,8 @@
 import configparser
-from utils import resource_path, guess_workspace_path, guess_mod_pack_path
+from utils import resource_path, guess_workspace_path, guess_mod_pack_path, contains
 from melder import get_meld_path
 import os
+from logs import Logger
 #FOR REFERENCE:
 # def generate_steam_paths():
 #     drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -46,22 +47,6 @@ import os
 #         base_path = os.path.abspath(".")
 #     return os.path.join(base_path, relative_path)
 
-
-# def get_meld_path(meld_config_path=None):
-#     if meld_config_path:
-#         return meld_config_path    
-#     where_meld = shutil.which('meld')
-#     if where_meld:
-#         config = configparser.ConfigParser()
-#         config.read('config.ini')
-#         config.set('Meld', 'path', where_meld)
-#         with open('config.ini', 'w') as config_file:
-#             config.write(config_file)
-#         add_config_notes()
-#         return where_meld
-#     else:
-#         return None
-
 # TODO: Write an exception to create default config file ☑ Needs testing
 # TODO: Handle config file corruption with rewrite ☑ Needs testing
 class Config:
@@ -69,7 +54,9 @@ class Config:
     config_template = '''
     [Scan]
     deep_scan = False
-
+    force_refresh_source_scripts = False
+    force_refresh_mod_scripts = False
+    
     [Paths]
     source_pak_0 = data0.pak
     source_pak_1 = data1.pak
@@ -89,32 +76,67 @@ class Config:
     [Misc]
     overwrite_default = True
     hide_unpacked_content = True
+    notifications = False
+    always_on_top = True
     # mod_pak = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source\data3.pak
     # target = X:\SteamLibrary\steamapps\common\Dying Light 2\ph\source
+    #
+    # *Refresh source/mod scripts* and *deep scan* are two ways of addressing the same problem:
+    #
+    #   Source/Mod scripts are missing or have changed from data0.pak or data1.pak.
+    #   * Refreshing source/mod scripts gathers all the scripts freshly. (Slow)
+    #
+    #   * Deep scan attempts to identify missing/changed scripts in source script AND mod
+    #     scripts and adds or overwrites as needed. 
+    #
+    #   * WARNING
+    #   * BOTH options (refresh_mod_scripts & deep_scan) will OVERWRITE your unpacked mod folder. 
+    #     Make sure you have repacked your mod before continuing.
     '''
     def __init__(self):
         self.config_path = resource_path('config.ini')
         self.config_parser = configparser.ConfigParser()
+        self.logger = Logger()
 
+        self.properties = [
+            'target_workspace', 'deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'source_pak_0', 'source_pak_1',
+            'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
+            'use_meld', 'backup_enabled', 'backup_count', 'notifications', 'always_on_top'
+        ]
+        self.properties_strings = ['deep_scan', 'force_refresh_source_scripts', 'force_refresh_mod_scripts', 'source_pak_0', 'source_pak_1', 'mod_pak', 'target', 'enable', 'path', 'enable', 'count', 'overwrite_default', 'hide_unpacked_content', 'notifications', 'always_on_top']
+
+
+        self.sections = ['Workspace', 'Paths', 'Meld', 'Scan', 'Misc']
+        
+        #Some initialization logic to handle missing, corrupt, out-of-date config.ini file
         if not os.path.exists(self.config_path):
+            self.logger.log_warning('os.path.exists(self.config_path) = False')
             self._create_default_config()
         
         if not self._load_config():
+            self.logger.log_warning('self._load_config() = False')
             self._create_default_config()
             self._load_config()  # Reload the default configuration
 
-        if not (self.config_parser.has_section('Workspace') and self.config_parser.has_section('Paths') and self.config_parser.has_section('Meld') and self.config_parser.has_section('Scan') and self.config_parser.has_section('Misc')):
+        if self._has_invalid_sections_and_properties():
+            self.logger.log_warning('self._has_invalid_sections_and_properties = True')
             self._create_default_config()
-            self._load_config()  # Reload the default configuration if required sections do not exist
+            self._load_config()  # Reload the default configuration if required sections or properties do not exist
 
         self.assign_requirements()
+        
+    def _has_invalid_sections_and_properties(self):
+        """
+        Validates that all necessary sections and properties are present in the configuration.
+        """
+        for section in self.sections:
+            if not self.config_parser.has_section(section):
+                return True
 
-        self.properties = [
-            'target_workspace', 'deep_scan', 'source_pak_0', 'source_pak_1',
-            'mod_pak', 'overwrite_default', 'hide_unpacked_content', 'meld_config_path',
-            'use_meld', 'backup_enabled', 'backup_count'
-        ]
-
+        for property in self.properties_strings:
+            if not contains(self.config_path, property):
+                return True
+        return False
     def _load_config(self):
         try:
             self.config_parser.read(self.config_path)
@@ -133,26 +155,51 @@ class Config:
         with open(self.config_path, 'w') as config_file:
             self.config_parser.write(config_file)            
     def assign_requirements(self):
-        if self.config_parser.get('Workspace', 'target')=='':
+        
+        if self.target_workspace == None:
             self.target_workspace = guess_workspace_path()
-        if self.config_parser.get('Paths', 'mod_pak') == '':
+        if self.mod_pak == None:
             self.mod_pak = guess_mod_pack_path(self.target_workspace)
             
-        if self.meld_config_path == '':
+        if self.meld_config_path == None:
             self.meld_config_path = get_meld_path()
         self.save_config()
 
     @property
     def target_workspace(self):
         """Folder containing source materials: source_pak_0, source_pak_1, and mod_pak"""
-        return resource_path(self.config_parser.get('Workspace', 'target'))
+        target = self.config_parser.get('Workspace', 'target')
+        if target == '':
+            return None
+        else:
+            return resource_path(target)
+
 
     @target_workspace.setter
     def target_workspace(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Workspace', 'target', value)
         self.save_config()
 
-
+    @property
+    def force_refresh_source_scripts(self):
+        return self.config_parser.getboolean('Scan', 'force_refresh_source_scripts')
+    
+    @force_refresh_source_scripts.setter
+    def force_refresh_source_scripts(self, value):
+        self.config_parser.set('Scan', 'force_refresh_source_scripts', str(value))
+        self.save_config()
+        
+    @property
+    def force_refresh_mod_scripts(self):
+        return self.config_parser.getboolean('Scan', 'force_refresh_mod_scripts')
+    
+    @force_refresh_mod_scripts.setter
+    def force_refresh_mod_scripts(self, value):
+        self.config_parser.set('Scan', 'force_refresh_mod_scripts', str(value))
+        self.save_config()
+        
     @property
     def copy_to(self):
         """No official support. Manages copy of repacked mod at path"""
@@ -192,14 +239,20 @@ class Config:
     def source_pak_1(self, value):
         self.config_parser.set('Paths', 'source_pak_1', value)
         self.save_config()
-    
+
     @property
     def mod_pak(self):
         """Str: Path to dataX.pak"""
-        return self.config_parser.get('Paths', 'mod_pak')
-    
+        mod = self.config_parser.get('Paths', 'mod_pak')
+        if mod == '':
+            return None
+        else:
+            return mod
+
     @mod_pak.setter
     def mod_pak(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Paths', 'mod_pak', value)
         self.save_config()
 
@@ -224,13 +277,22 @@ class Config:
         self.config_parser.set('Misc', 'hide_unpacked_content', str(value))
         self.save_config()
     
+    # @property
+    # def meld_config_path(self):
+    #     """Path to Meld as per config.ini. Falls back to None"""
+    #     return self.config_parser.get('Meld', 'path', fallback=None)
     @property
     def meld_config_path(self):
-        """Path to Meld as per config.ini. Falls back to None"""
-        return self.config_parser.get('Meld', 'path', fallback=None)
-    
+        """Str: Path to dataX.pak"""
+        path = self.config_parser.get('Meld', 'path')
+        if path == '':
+            return None
+        else:
+            return path
     @meld_config_path.setter
     def meld_config_path(self, value):
+        if value is None:
+            value = ''
         self.config_parser.set('Meld', 'path', value)
         self.save_config()
     
@@ -253,7 +315,16 @@ class Config:
     def backup_enabled(self, value):
         self.config_parser.set('Backups', 'enable', str(value))
         self.save_config()
+    @property
+    def notifications(self):
+        """Bool: Create backup of mod_pak on startup"""
+        return self.config_parser.getboolean('Misc', 'notifications')
     
+    @notifications.setter
+    def notifications(self, value):
+        self.config_parser.set('Misc', 'notifications', str(value))
+        self.save_config()
+        
     @property
     def backup_count(self):
         """Int: Number of rolling backups for backup manager to retain"""
@@ -263,7 +334,16 @@ class Config:
     def backup_count(self, value):
         self.config_parser.set('Backups', 'count', str(value))
         self.save_config()
+        
+    @property
+    def always_on_top(self):
+        """Bool: Create backup of mod_pak on startup"""
+        return self.config_parser.getboolean('Misc', 'always_on_top', fallback=True)
     
+    @always_on_top.setter
+    def always_on_top(self, value):
+        self.config_parser.set('Misc', 'always_on_top', str(value))
+        self.save_config()
     def dump_settings(self):
         """
         Dump the settings as a tuple in the following order:
@@ -285,7 +365,7 @@ class Config:
             self.target_workspace, self.copy_to, self.deep_scan, self.source_pak_0,
             self.source_pak_1, self.mod_pak, self.overwrite_default,
             self.hide_unpacked_content, self.meld_config_path, self.use_meld,
-            self.backup_enabled, self.backup_count
+            self.backup_enabled, self.backup_count, self.notifications
         )
 
 # config = Config()

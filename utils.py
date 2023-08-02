@@ -123,7 +123,9 @@ def resource_path(relative_path):
     """standardize relative references"""
     
     # List of file names to be redirected to AppData
+
     redirect_files = ['config.ini', 'LOG_INFO.log']
+
 
     # Check if the relative_path is in the list
     if os.path.basename(relative_path) in redirect_files:

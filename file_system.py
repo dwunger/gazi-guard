@@ -20,7 +20,17 @@ def bring_window_to_front_by_pid(pid):
             ctypes.windll.user32.SetForegroundWindow(hwnd)
     except Exception as e:
         print(f"Failed to bring window to front: {e}")
-
+# def update_archive(source_path, zip_path, archive_path, delay=0.1):
+#     """Update zip archive with modified or new file."""
+#      #race condition with Meld. There's probably a better way to deal with this
+#      #tried a spinlock type approach, but this raises an error on Meld's end
+#     time.sleep(delay)
+#     try:
+#         with zipfile.ZipFile(zip_path, 'a') as zipf:
+#             zipf.write(source_path, archive_path)
+#     except FileNotFoundError:
+#         print(f"Warning: File {source_path} was not found.")
+#         return
 def update_archive(source_path, target_path, delay = 0.1):
     #race condition with Meld. There's probably a better way to deal with this
     #tried a spinlock type approach, but this raises an error on Meld's end

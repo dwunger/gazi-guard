@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
 import os, time, subprocess, shutil
-import configparser
+
+from utils import resource_path
+
 def add_config_notes():
     note = '''\n\n; NOTES
 ; Overwrite: 
@@ -48,7 +50,6 @@ def prompt_delete_backups(message):
     
     return response
 
-
 def prompt_to_restart():
     root = tk.Tk()
     root.withdraw()
@@ -63,25 +64,27 @@ def prompt_to_restart():
     
     return response
 
-
 def launch_meld(meld_path,mod_unpack_path,merged_unpack_path):
     meld_command = meld_path if meld_path else 'meld'
     return subprocess.Popen([meld_command, mod_unpack_path, merged_unpack_path])
 
+
 def get_meld_path(meld_config_path=None):
     if meld_config_path:
-        return meld_config_path    
-    where_meld = shutil.which('meld')
-    if where_meld:
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-        config.set('Meld', 'path', where_meld)
-        with open('config.ini', 'w') as config_file:
-            config.write(config_file)
-        add_config_notes()
-        return where_meld
-    else:
-        return None
+        return meld_config_path
+    program_files = os.environ.get('PROGRAMFILES')
+    program_files_x86 = os.environ.get('PROGRAMFILES(X86)')
+    possible_paths = [
+        shutil.which('meld'),
+        os.path.join(program_files, 'Meld/Meld.exe') if program_files else None,
+        os.path.join(program_files_x86, 'Meld/Meld.exe') if program_files_x86 else None
+    ]
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            # set_meld_path(path)
+            return path
+            
+    return None
 def wait_for_meld_installation():
     # meld_path = "C:/Program Files/Meld/Meld.exe"
     # meld_installed = os.path.exists(meld_path)
@@ -101,18 +104,20 @@ class MeldHandler:
 
     def handle(self):
         if self.use_meld: 
-            meld_path = get_meld_path(meld_config_path=self.meld_config_path)
-            if not meld_path:
+            if self.meld_config_path is None:
+                self.meld_config_path = get_meld_path(meld_config_path=None)
+
+            if not self.meld_config_path:
                 prompt_install_meld()
                 wait_for_meld_installation()
             try:
-                self.meld_process = launch_meld(meld_path, self.mod_unpack_path, self.merged_unpack_path)
+                self.meld_process = launch_meld(self.meld_config_path, self.mod_unpack_path, self.merged_unpack_path)
                 # print("Launching Meld for review...")
             except FileNotFoundError:
                 print('\nMeld does not appear in PATH or specified path is incorrect. Please install from \
                     https://meldmerge.org/ or specify the correct path in the config.ini file.')
-                meld_path = wait_for_meld_installation()
-                self.meld_process = launch_meld(meld_path, self.mod_unpack_path, self.merged_unpack_path)
+                self.meld_config_path = wait_for_meld_installation()
+                self.meld_process = launch_meld(self.meld_config_path, self.mod_unpack_path, self.merged_unpack_path)
 
     def poll(self):
         return self.meld_process.poll() if self.meld_process else None
