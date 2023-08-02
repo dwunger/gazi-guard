@@ -65,6 +65,8 @@ def generate_steam_paths():
 
     return steam_paths
 def guess_mod_pack_path(target_workspace):
+    if target_workspace == None:
+        return None
     for i in range(2,16):
         filename = f'data{i}.pak'
         guess = os.path.join(target_workspace, filename)
