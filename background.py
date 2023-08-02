@@ -18,8 +18,9 @@ from melder import (MeldHandler, get_meld_path, launch_meld,
                     prompt_enter_config, prompt_install_meld,
                     wait_for_meld_installation)
 from notifs import RateLimitedNotifier, show_notification
-from utils import resource_path
+from utils import resource_path, file_selector_dialog
 from logs import Logger
+
 #BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 #!QUIRK: App tray icon managed from main.py as separate process from GUI process
 #!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
@@ -161,7 +162,23 @@ def initialize_workspace():
     target_workspace, copy_to, deep_scan_enabled, source_pak_0, source_pak_1, mod.packed_path, overwrite_default, \
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count, notifications = config.dump_settings()
 
+    logger.log_info(f"\ntarget_workspace: {target_workspace}\nmod.packed_path: {mod.packed_path}\nmeld_config_path: {meld_config_path}")
 
+    if target_workspace is None:
+        logger.log_warning('target_workspace is None:')
+        user_selection = file_selector_dialog("Folder containing data0.pak, data1.pak, and dataX.pak")
+        config.target_workspace, target_workspace = user_selection, user_selection
+
+    if mod.packed_path is None:
+        logger.log_warning('mod.packed_path is None:')
+        user_selection = file_selector_dialog("Please select your mod 'dataX.pak'", file_extension="*.pak", file_type_description="Compressed Mod")
+        config.mod_pak, mod.packed_path = user_selection, user_selection
+
+    if meld_config_path is None:
+        # this should be handled already, but the old handle is broken. This serves as a backup until the old method is fixed.
+        logger.log_warning('meld_config_path is None')
+        user_selection = file_selector_dialog("Please select Meld.exe", file_extension="*.exe", file_type_description="Meld Executable")
+        config.meld_config_path, meld_config_path = user_selection, user_selection
 
     # if not mod_path:
     # time.sleep(10)
