@@ -1,7 +1,32 @@
 import json
 import subprocess
-#import zipfile
+import os, sys
+def resource_path(relative_path):
+    """standardize relative references, copied from utils"""
+    
+    # List of file names to be redirected to AppData
 
+    redirect_files = ['config.ini', 'LOG_INFO.log']
+
+
+    # Check if the relative_path is in the list
+    if os.path.basename(relative_path) in redirect_files:
+        # Redirect to the AppData folder
+        appdata_path = os.getenv('APPDATA')
+        new_path = os.path.join(appdata_path, 'GaziGuard', relative_path)
+
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
+        return new_path
+
+    # If the path is not in the list, fall back to the old behavior
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 def remove_from_zip(zip_file_path: str, file_to_delete: str) -> dict:
     """
@@ -22,7 +47,7 @@ def remove_from_zip(zip_file_path: str, file_to_delete: str) -> dict:
         "FileToDelete": file_to_delete
     }
     json_input = json.dumps(input_data)
-    result = subprocess.run(["ZipProc.exe"], input=json_input, text=True, capture_output=True)
+    result = subprocess.run(["ZipUtils/resources/ZipProc.exe"], input=json_input, text=True, capture_output=True)
 
     try:
         result_data = json.loads(result.stdout)
@@ -63,7 +88,7 @@ class ZipHandler:
             "FileToRemove": file_to_remove
         }
         json_input = json.dumps(input_data)
-        result = subprocess.run(["ZipProc.exe"], input=json_input, text=True, capture_output=True)
+        result = subprocess.run(["ZipUtils/resources/ZipProc.exe"], input=json_input, text=True, capture_output=True)
 
         try:
             result_data = json.loads(result.stdout)
@@ -97,7 +122,7 @@ class ZipHandler:
                 "NewFilePath": new_file_path
             }
             json_input = json.dumps(input_data)
-            result_add = subprocess.run(["ZipProc.exe"], input=json_input, text=True, capture_output=True)
+            result_add = subprocess.run(["ZipUtils/resources/ZipProc.exe"], input=json_input, text=True, capture_output=True)
 
             try:
                 result_data = json.loads(result_add.stdout)
