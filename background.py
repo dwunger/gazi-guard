@@ -20,6 +20,8 @@ from melder import (MeldHandler, get_meld_path, launch_meld,
 from notifs import RateLimitedNotifier, show_notification
 from utils import resource_path, file_selector_dialog
 from logs import Logger
+from ZipUtils import czip
+from ZipUtils.czip import ZipHandler
 
 #BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
 #!QUIRK: App tray icon managed from main.py as separate process from GUI process
@@ -56,37 +58,94 @@ from logs import Logger
 #         except IOError:
 #             return False
 
+# class FileChangeHandler(FileSystemEventHandler):
+#     # def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
+#     def __init__(self, mod, notifications) -> None:
+#         self.mod = mod
+#         # self.copy_to = copy_to
+
+#         self.rate_limiter = RateLimitedNotifier(enabled=notifications)
+
+#     def on_modified(self, event):
+        
+#         logger.log_variable("event", event)
+#         comms.send_message(comms.message.data('on_modified_event'))
+#         mod.status = 'desync'
+#         if not event.is_directory:
+#             # Check if the modified file is in the mod.unpacked_path
+#             if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
+#                 logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
+#                 logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
+#                 update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+#                 mod.status = 'sync'
+#                 # if self.copy_to:
+#                 #     update_archive(self.mod.unpacked_path, self.copy_to)
+#                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
+#         mod.status = 'sync'    
+#     @staticmethod
+#     def _is_file_access_done(file_path):
+#         '''race condition with meld'''
+#         try:
+#             with open(file_path, 'r'):
+#                 return True
+#         except IOError:
+#             return False
+        
 class FileChangeHandler(FileSystemEventHandler):
-    # def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
     def __init__(self, mod, notifications) -> None:
         self.mod = mod
-        # self.copy_to = copy_to
-
         self.rate_limiter = RateLimitedNotifier(enabled=notifications)
+        self.zip_handler = ZipHandler(self.mod.packed_path)
 
     def on_modified(self, event):
         logger.log_variable("event", event)
         comms.send_message(comms.message.data('on_modified_event'))
-        mod.status = 'desync'
+        self.mod.status = 'desync'
         if not event.is_directory:
-            # Check if the modified file is in the mod.unpacked_path
-            if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
+            rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
+            if os.path.commonpath([event.src_path, self.mod.unpacked_path]) == self.mod.unpacked_path:
                 logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
                 logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
-                update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
-                mod.status = 'sync'
-                # if self.copy_to:
-                #     update_archive(self.mod.unpacked_path, self.copy_to)
+                try:
+                    # Try to remove and overwrite the file in the zip archive
+                    overwrite_result = self.zip_handler.overwrite(rel_path, event.src_path)
+                    if overwrite_result['Success']:
+                        logger.log_variable("    File overwrite successful", rel_path)
+                    else:
+                        logger.log_variable("    File overwrite failed", overwrite_result['Path'])
+                        raise Exception("File overwrite failed")
+                except Exception as e:
+                    # If an exception is raised, fall back to updating the entire archive
+                    logger.log_variable("    Exception during overwrite", str(e))
+                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+
+                self.mod.status = 'sync'
                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
-        mod.status = 'sync'    
-    @staticmethod
-    def _is_file_access_done(file_path):
-        '''race condition with meld'''
-        try:
-            with open(file_path, 'r'):
-                return True
-        except IOError:
-            return False
+        self.mod.status = 'sync'
+        
+    def on_deleted(self, event):
+        logger.log_variable("event", event)
+        comms.send_message(comms.message.data('on_deleted_event'))
+        self.mod.status = 'desync'
+        if not event.is_directory:
+            rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
+            if os.path.commonpath([event.src_path, self.mod.unpacked_path]) == self.mod.unpacked_path:
+                try:
+                    # Try to remove the file in the zip archive
+                    remove_result = self.zip_handler.remove(rel_path)
+                    if remove_result['Success']:
+                        logger.log_variable("    File removal successful", rel_path)
+                    else:
+                        logger.log_variable("    File removal failed", remove_result['Path'])
+                        raise Exception("File removal failed")
+                except Exception as e:
+                    # If an exception is raised, fall back to updating the entire archive
+                    logger.log_variable("    Exception during removal", str(e))
+                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+
+                self.mod.status = 'sync'
+                self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
+        self.mod.status = 'sync'
 class ModArchive:
     def __init__(self, comms):
         # Path to the mod archive
