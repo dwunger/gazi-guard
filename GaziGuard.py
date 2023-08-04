@@ -12,10 +12,10 @@ from utils import resource_path
 
 
 # TODO: Restart main proc on settings update
-# TODO: Distinguish file and directory update events for granular archive repacks
+# TODO: Distinguish file and directory update events for granular archive repacks *WIP
 # TODO: Experiment launching other diff tools from command line
 # TODO: Compare backups before shifting the stack for more efficient history of backups
-# TODO: Set keep on top as default
+# TODO: Set keep on top as default *Done.
 
 
 class MainWindow(QtWidgets.QMainWindow):
