@@ -146,6 +146,8 @@ class FileChangeHandler(FileSystemEventHandler):
                 self.mod.status = 'sync'
                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
         self.mod.status = 'sync'
+        
+        
 class ModArchive:
     def __init__(self, comms):
         # Path to the mod archive
@@ -223,17 +225,17 @@ def initialize_workspace():
 
     logger.log_info(f"\ntarget_workspace: {target_workspace}\nmod.packed_path: {mod.packed_path}\nmeld_config_path: {meld_config_path}")
 
-    if target_workspace is None:
+    if target_workspace is None or not os.path.exists(target_workspace):
         logger.log_warning('target_workspace is None:')
         user_selection = file_selector_dialog("Folder containing data0.pak, data1.pak, and dataX.pak")
         config.target_workspace, target_workspace = user_selection, user_selection
 
-    if mod.packed_path is None:
+    if mod.packed_path is None or not os.path.exists(mod.packed_path):
         logger.log_warning('mod.packed_path is None:')
         user_selection = file_selector_dialog("Please select your mod 'dataX.pak'", file_extension="*.pak", file_type_description="Compressed Mod")
         config.mod_pak, mod.packed_path = user_selection, user_selection
 
-    if meld_config_path is None:
+    if meld_config_path is None or not os.path.exists(meld_config_path):
         # this should be handled already, but the old handle is broken. This serves as a backup until the old method is fixed.
         logger.log_warning('meld_config_path is None')
         user_selection = file_selector_dialog("Please select Meld.exe", file_extension="*.exe", file_type_description="Meld Executable")

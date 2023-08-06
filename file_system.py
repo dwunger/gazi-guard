@@ -71,8 +71,10 @@ def set_folder_hidden(folder_path):
             pass
 
 def set_folders_hidden(paths):
+    
     for path in paths:
-        set_folder_hidden(path)
+        if os.path.exists(path):
+            set_folder_hidden(path)
 
 def remove_hidden_attribute(folder_path):
     if os.name == 'nt':
@@ -187,14 +189,6 @@ def get_mod_files(mod_pak):
             with zipfile.ZipFile(mod_pak, 'r') as mod_zip:
                 return mod_zip.namelist()
 
-
-
-# import tarfile
-
-# def get_mod_files(mod_pak):
-#     with tarfile.open(mod_pak, 'r:gz') as mod_tar:
-#         return mod_tar.getnames()
-
 def verify_source_paks_exist(source_pak_0, source_pak_1, error_message):
     if not os.path.exists(source_pak_0) or not os.path.exists(source_pak_1):
         raise FileNotFoundError(error_message)
@@ -242,6 +236,7 @@ def extract_source_scripts(source_archive, mod_file_names, destination):
                 zip_ref.extract(file, path=destination)
             
 def set_folder_attribute(hide_unpacked_content, target_workspace, merged_unpack_path, mod_unpack_path):
+    
     if hide_unpacked_content:
         try:
             set_folders_hidden([os.path.join(target_workspace, 'Unpacked'), merged_unpack_path, mod_unpack_path])
