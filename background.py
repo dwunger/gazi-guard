@@ -99,7 +99,10 @@ class FileChangeHandler(FileSystemEventHandler):
 
     def on_modified(self, event):
         logger.log_variable("event", event)
-        comms.send_message(comms.message.data('on_modified_event'))
+        if event.is_directory:
+            update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
+            self.mod.status = 'sync'
+            self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
         self.mod.status = 'desync'
         if not event.is_directory:
             rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
@@ -117,7 +120,7 @@ class FileChangeHandler(FileSystemEventHandler):
                 except Exception as e:
                     # If an exception is raised, fall back to updating the entire archive
                     logger.log_variable("    Exception during overwrite", str(e))
-                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+                    #update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
 
                 self.mod.status = 'sync'
                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
@@ -125,7 +128,7 @@ class FileChangeHandler(FileSystemEventHandler):
         
     def on_deleted(self, event):
         logger.log_variable("event", event)
-        comms.send_message(comms.message.data('on_deleted_event'))
+
         self.mod.status = 'desync'
         if not event.is_directory:
             rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
@@ -141,10 +144,18 @@ class FileChangeHandler(FileSystemEventHandler):
                 except Exception as e:
                     # If an exception is raised, fall back to updating the entire archive
                     logger.log_variable("    Exception during removal", str(e))
-                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+                    #update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
 
                 self.mod.status = 'sync'
                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
+        self.mod.status = 'sync'
+    def on_create(self, event):
+        logger.log_variable("create_event", event)
+        self.mod.status = 'desync'
+        if event.is_directory:
+            update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.2)
+            self.mod.status = 'sync'
+            self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
         self.mod.status = 'sync'
         
         

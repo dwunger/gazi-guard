@@ -113,7 +113,7 @@ class ZipHandler:
                 - 'Path': The path of the file that was overwritten if successful, or an error message if unsuccessful.
         """
         # Remove the existing file from the zip archive
-        result_remove = self.zip_remove(existing_file)
+        result_remove = self.remove(existing_file)
 
         if result_remove['Success']:
             # Add the new file to the zip archive
