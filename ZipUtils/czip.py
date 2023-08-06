@@ -135,6 +135,7 @@ class ZipHandler:
             return result_remove
         
     # ALiases
+    zip_remove = remove
     rm = remove
     delete = remove
     rmfile = remove
