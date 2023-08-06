@@ -227,6 +227,8 @@ def choose_mod_pak(mod_pak, target_workspace):
 def extract_source_scripts(source_archive, mod_file_names, destination):
     '''args: source archive path, list of candidate files to extract, extract to path'''
     #pass source_pak_0 and source_pak_1
+    if not os.path.exists(destination):
+        os.mkdir(destination)
     with zipfile.ZipFile(source_archive, 'r') as zip_ref:
         table = set(zip_ref.namelist())
         #print(zip_ref.namelist()[0:10])

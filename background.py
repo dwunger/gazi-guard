@@ -224,7 +224,9 @@ def initialize_workspace():
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count, notifications = config.dump_settings()
 
     logger.log_info(f"\ntarget_workspace: {target_workspace}\nmod.packed_path: {mod.packed_path}\nmeld_config_path: {meld_config_path}")
-
+    with zipfile.ZipFile(mod.packed_path, 'w') as zip:
+        if len(zip.namelist()) == 0:
+            zip.writestr("GENERATED", "This file was automatically generated.")
     if target_workspace is None or not os.path.exists(target_workspace):
         logger.log_warning('target_workspace is None:')
         user_selection = file_selector_dialog("Folder containing data0.pak, data1.pak, and dataX.pak")
@@ -234,6 +236,8 @@ def initialize_workspace():
         logger.log_warning('mod.packed_path is None:')
         user_selection = file_selector_dialog("Please select your mod 'dataX.pak'", file_extension="*.pak", file_type_description="Compressed Mod")
         config.mod_pak, mod.packed_path = user_selection, user_selection
+
+                
 
     if meld_config_path is None or not os.path.exists(meld_config_path):
         # this should be handled already, but the old handle is broken. This serves as a backup until the old method is fixed.
@@ -267,10 +271,10 @@ def initialize_workspace():
     source_pak_1 = os.path.join(target_workspace, source_pak_1)
     mod.unpacked_path =  os.path.join(target_workspace, f"Unpacked\\{file_basename(mod.packed_path)}_mod_scripts")
     merged_unpack_path = os.path.join(target_workspace, f'Unpacked\\{file_basename(mod.packed_path)}_source_scripts')
-    if config.force_refresh_mod_scripts:
+    if config.force_refresh_mod_scripts and os.path.exists(mod.unpacked_path):
         logger.log_warning('Force Refresh Mod Enabled! Deleting Unpacked Mod Scripts')
         shutil.rmtree(mod.unpacked_path)   
-    if config.force_refresh_source_scripts:
+    if config.force_refresh_source_scripts and os.path.exists(mod.unpacked_path):
         logger.log_warning('Force Refresh Source Enabled! Deleting Source Scripts')
         shutil.rmtree(merged_unpack_path)   
     file_missing_error = "\nOne or both source pak files are missing (data0.pak and/or data1.pak)." \
