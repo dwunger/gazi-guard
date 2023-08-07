@@ -157,7 +157,59 @@ class FileChangeHandler(FileSystemEventHandler):
             self.mod.status = 'sync'
             self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
         self.mod.status = 'sync'
-        
+import os
+import shutil
+import tempfile
+import filecmp
+
+class DummyFileWriter:
+    def __init__(self, zip_path, directory_path):
+        self.zip_path = zip_path
+        self.directory_path = directory_path
+
+    def write_dummy_file(self, filename, destination_dir):
+        filepath = os.path.join(destination_dir, filename)
+        with open(filepath, 'w') as file:
+            file.write('This is a dummy file.')
+
+    def write_dummy_folder(self, num_files):
+        if not os.path.exists(self.directory_path):
+            os.makedirs(self.directory_path)
+
+        # Create a temporary directory to store the dummy files
+        temp_dir = tempfile.mkdtemp()
+
+        for i in range(num_files):
+            filename = f'dummy_file_{i}.txt'
+            self.write_dummy_file(filename, temp_dir)
+
+        # Move the entire temporary folder to the desired directory
+        shutil.move(temp_dir, self.directory_path)
+
+    def compare_folders(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Extract the zip file to the temporary directory
+            with zipfile.ZipFile(self.zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            for dirpath, dirnames, filenames in os.walk(self.directory_path):
+                # Check if all directories in directory_path also exist in the extracted zip file
+                for dirname in dirnames:
+                    directory = os.path.join(dirpath, dirname)
+                    directory_in_zip = directory.replace(self.directory_path, temp_dir)
+                    if not os.path.isdir(directory_in_zip):
+                        print(f"Directory {dirname} exists in {self.directory_path} but not in {self.zip_path}.")
+                        return False
+                # Check if all files in directory_path also exist in the extracted zip file and have the same content
+                for filename in filenames:
+                    file = os.path.join(dirpath, filename)
+                    file_in_zip = file.replace(self.directory_path, temp_dir)
+                    if not os.path.isfile(file_in_zip) or not filecmp.cmp(file, file_in_zip, shallow=False):
+                        print(f"File {filename} either does not exist or is different in {self.zip_path} compared to {self.directory_path}.")
+                        return False
+
+            print("No differences detected between the directories.")
+            return True
         
 class ModArchive:
     def __init__(self, comms):
