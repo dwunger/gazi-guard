@@ -83,6 +83,8 @@ class ZipHandler:
                 - 'Success': A boolean indicating if the removal was successful.
                 - 'Path': The path of the file that was removed if successful, or an error message if unsuccessful.
         """
+        self.zip_file_path = self.zip_file_path.replace('\\', '/')
+        file_to_remove     = file_to_remove.replace('\\', '/')
         input_data = {
             "ZipFilePath": self.zip_file_path,
             "FileToRemove": file_to_remove
