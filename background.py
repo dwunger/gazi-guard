@@ -1,188 +1,206 @@
+import filecmp
 import os
+import queue
+import shutil
 import sys
+import tempfile
 import threading
 import time
 
 import pystray
 from PIL import Image
-
 from pystray import MenuItem as item
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from abstract_message import AbstractMessage
 from backups import BackupHandler
+from communications import CommsManager
 from configs import Config
 from file_system import *
+from logs import Logger
 from melder import (MeldHandler, get_meld_path, launch_meld,
                     prompt_enter_config, prompt_install_meld,
                     wait_for_meld_installation)
+from mod_archive import ModArchive, ModStatus
 from notifs import RateLimitedNotifier, show_notification
-from utils import resource_path, file_selector_dialog
-from logs import Logger
+from utils import file_selector_dialog, resource_path
 from ZipUtils import czip
 from ZipUtils.czip import ZipHandler
 
-#BUG #?(sort of): need to generate a flag if process holds archive hostage. For example, 7zip likes to prevent writes to an open archive, but this is currently not detected, so writes are lost
-#!QUIRK: App tray icon managed from main.py as separate process from GUI process
-#!QUIRK: prints with '*' prefix interpreted by std out as commands as per abstract_message construct
-#TODO: Update status of repack in GUI - Done with some caveats. Would be best to centralize mod_pak status to class and handle updates internally
 
+def delete_file_from_zip(zip_file_path: str, file_to_delete: str) -> dict:
+    import json
+    import subprocess
+    """
+    Delete a file from a zip archive.
 
-# class FileChangeHandler(FileSystemEventHandler):
-#     """Handle file or directory modification."""
-#     def __init__(self, mod) -> None:
-#         self.mod = mod
-#         self.rate_limiter = RateLimitedNotifier()
+    Parameters:
+        zip_file_path (str): The path to the zip archive.
+        file_to_delete (str): The relative path of the file to delete within the zip archive.
+                              Note: Relative paths should use forward slashes ("/") even on Windows.
 
-#     def on_modified(self, event):
-#         comms.send_message(comms.message.data('on_modified_event'))
-#         self.mod.status = 'desync'
-#         # Check if the modified file or directory is in the mod.unpacked_path
-#         if os.path.commonpath([self.mod.unpacked_path, event.src_path]) == self.mod.unpacked_path:
-#             # Get the relative path of the modified file or directory
-#             relative_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
-#             # Update archive with modified file or directory
-#             update_archive(event.src_path, self.mod.packed_path, relative_path, delay=0.2)
-#             self.mod.status = 'sync'
-#             self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
-#         else:
-#             self.mod.status = 'sync' 
+    Returns:
+        dict: A dictionary containing the result of the operation. The dictionary will have two keys:
+            - 'Success': A boolean indicating if the deletion was successful.
+            - 'Path': The path of the file that was deleted if successful, or an error message if unsuccessful.
+    """
+    input_data = {
+        "ZipFilePath": zip_file_path,
+        "FileToDelete": file_to_delete
+    }
+    json_input = json.dumps(input_data)
+    result = subprocess.run(["ZipUtils/resources/ZipProc.exe"], input=json_input, text=True, capture_output=True)
 
-#     @staticmethod
-#     def _is_file_access_done(file_path):
-#         '''race condition with meld'''
-#         try:
-#             with open(file_path, 'r'):
-#                 return True
-#         except IOError:
-#             return False
+    try:
+        result_data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        result_data = {"Success": False, "Path": "Invalid JSON format."}
 
-# class FileChangeHandler(FileSystemEventHandler):
-#     # def __init__(self, mod_unpack_path, mod_pak, copy_to) -> None:
-#     def __init__(self, mod, notifications) -> None:
-#         self.mod = mod
-#         # self.copy_to = copy_to
-
-#         self.rate_limiter = RateLimitedNotifier(enabled=notifications)
-
-#     def on_modified(self, event):
-        
-#         logger.log_variable("event", event)
-#         comms.send_message(comms.message.data('on_modified_event'))
-#         mod.status = 'desync'
-#         if not event.is_directory:
-#             # Check if the modified file is in the mod.unpacked_path
-#             if os.path.commonpath([self.mod.unpacked_path]) == self.mod.unpacked_path:
-#                 logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
-#                 logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
-#                 update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
-#                 mod.status = 'sync'
-#                 # if self.copy_to:
-#                 #     update_archive(self.mod.unpacked_path, self.copy_to)
-#                 self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
-#         mod.status = 'sync'    
-#     @staticmethod
-#     def _is_file_access_done(file_path):
-#         '''race condition with meld'''
-#         try:
-#             with open(file_path, 'r'):
-#                 return True
-#         except IOError:
-#             return False
-        
+    return result_data
 class FileChangeHandler(FileSystemEventHandler):
+    
     def __init__(self, mod, notifications) -> None:
+        super().__init__()
         self.mod = mod
-        self.rate_limiter = RateLimitedNotifier(enabled=notifications)
         self.zip_handler = ZipHandler(self.mod.packed_path)
+        self.rate_limiter = RateLimitedNotifier(enabled=notifications)
+        self.event_queue = queue.Queue()
+        self.events = []
 
-    def on_modified(self, event):
-        logger.log_variable("event", event)
-        comms.send_message(comms.message.data('on_modified_event'))
-        self.mod.status = 'desync'
-        if not event.is_directory:
-            rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
-            if os.path.commonpath([event.src_path, self.mod.unpacked_path]) == self.mod.unpacked_path:
-                logger.log_variable("    self.mod.unpacked_path", self.mod.unpacked_path)
-                logger.log_variable("    self.mod.packed_path", self.mod.packed_path)
-                try:
-                    # Try to remove and overwrite the file in the zip archive
-                    overwrite_result = self.zip_handler.overwrite(rel_path, event.src_path)
-                    if overwrite_result['Success']:
-                        logger.log_variable("    File overwrite successful", rel_path)
-                    else:
-                        logger.log_variable("    File overwrite failed", overwrite_result['Path'])
-                        raise Exception("File overwrite failed")
-                except Exception as e:
-                    # If an exception is raised, fall back to updating the entire archive
-                    logger.log_variable("    Exception during overwrite", str(e))
-                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
+        # Start the daemon thread
+        self.event_processor_thread = threading.Thread(target=self.dequeue_events)
+        self.event_processor_thread.daemon = True
+        self.event_processor_thread.start()
 
+    def add_event(self, event):
+        '''adds attrs commonpath and relative path to simplify reconstructing file structure from mod directory root'''
+        absolute_path = event.src_path
+        print(event.event_type, file = sys.stderr)
+        if event.event_type == "moved":
+            absolute_path = event.dest_path
+        event.common_path = os.path.commonpath([absolute_path, self.mod.unpacked_path])
+        event.relative_path = os.path.relpath(absolute_path, self.mod.unpacked_path)
+        self.event_queue.put(event)
+        
+    def process_events(self):
+        # called from dequeue_events process_events provides a thread-safe scope to work on the self.events list
+        # Any directory level operations or numerous individual operations will cause a complete repack and returns early.
+        # The goal is to perform operations at a time complexity of O(m) using czip unless the cumulative time is 
+        # greater than the time complexity of update_archive at O(n*m). It should be possible to obsolete update_archive
+        # by removing the zipfile overhead and event batches in czip. This is left as an exercise for future me
+        
+        #events types are lower case: created, modified, deleted, and moved
+
+        creations     = []
+        modifications = []
+        deletions     = []        
+        movements     = []
+
+
+        for event in self.events:
+            if event.is_directory:
+                print("Detected folder change. Full repack.", file=sys.stderr)
+                update_archive(self.mod.unpacked_path, self.mod.packed_path, delay=0.1)
                 self.mod.status = 'sync'
-                self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
+                return
+            
+            elif event.event_type == 'created' and os.path.exists(event.src_path):
+                if 'goutputstream' not in event.src_path:
+                    print(event, file=sys.stderr)
+                    creations.append(event)
+            elif event.event_type == 'modified' and os.path.exists(event.src_path):
+                if 'goutputstream' not in event.src_path:
+                    print(event, file=sys.stderr)
+                    modifications.append(event)
+            elif event.event_type == 'deleted':
+                print(event, file=sys.stderr)
+                deletions.append(event)
+            elif event.event_type == 'moved' and os.path.exists(event.dest_path):
+                print(event, file=sys.stderr)
+                movements.append(event)
+        
+        IO_count = len(creations) + len(modifications) + len(deletions) + len(movements)
+        if IO_count > 10:
+            update_archive(self.mod.unpacked_path, self.mod.packed_path, delay=0.1)
+            self.mod.status = 'sync'
+            return
+        # order of operations → delete then create
+        # modify will be a combination of delete → create
+        
+        for event in deletions:
+            delete_file_from_zip(self.mod.packed_path, event.relative_path)
+        for event in movements:
+            if 'goutputstream' in event.src_path:
+                delete_file_from_zip(self.mod.packed_path,event.relative_path)
+        
+        with zipfile.ZipFile(self.mod.packed_path, 'a') as mod_pak:
+            write_paths = []
+            for event in creations:
+                path_args = (event.src_path, event.relative_path)
+                if path_args not in write_paths:
+                    write_paths.append(path_args)
+            for event in modifications:
+                path_args = (event.src_path, event.relative_path)
+                if path_args not in write_paths:
+                    write_paths.append(path_args)
+            for event in movements:
+                path_args = (event.dest_path, event.relative_path)
+                if path_args not in write_paths:
+                    write_paths.append(path_args)  
+            for path_args in write_paths:
+                print(f'WRITE TASK {path_args}', file=sys.stderr)
+                src, dst = path_args
+                src, dst = src.replace('\\', '/'), dst.replace('\\', '/')
+                mod_pak.write(src, dst, compress_type = zipfile.ZIP_DEFLATED)            
+        #clear the event list before returning to dequeue
+        self.events.clear()
+        
+        #Confirm repacking occured on front-end
         self.mod.status = 'sync'
+    
+    def dequeue_events(self):
+        while True:
+            # Sleep for 1 second before checking the queue
+            time.sleep(2)
+            
+            batch = []
+            while not self.event_queue.empty():
+                event = self.event_queue.get_nowait()
+                batch.append(event)
+            
+            # Transfer the batch to the main list
+            self.events.extend(batch)
+            
+            # Call the process_events method to process the batch
+            self.process_events()
+
+    def on_created(self, event):
+        print(f"on_created event: {event}", file=sys.stderr)
+        self.add_event(event) 
+        self.mod.status = 'desync'
         
     def on_deleted(self, event):
-        logger.log_variable("event", event)
-        comms.send_message(comms.message.data('on_deleted_event'))
+        print(f"on_deleted event: {event}", file=sys.stderr)
+        self.add_event(event)  
+        self.mod.status = 'desync'     
+           
+    def on_modified(self, event):
+        print(f"event: {event}", file=sys.stderr)
+        self.add_event(event)  
         self.mod.status = 'desync'
-        if not event.is_directory:
-            rel_path = os.path.relpath(event.src_path, self.mod.unpacked_path)
-            if os.path.commonpath([event.src_path, self.mod.unpacked_path]) == self.mod.unpacked_path:
-                try:
-                    # Try to remove the file in the zip archive
-                    remove_result = self.zip_handler.remove(rel_path)
-                    if remove_result['Success']:
-                        logger.log_variable("    File removal successful", rel_path)
-                    else:
-                        logger.log_variable("    File removal failed", remove_result['Path'])
-                        raise Exception("File removal failed")
-                except Exception as e:
-                    # If an exception is raised, fall back to updating the entire archive
-                    logger.log_variable("    Exception during removal", str(e))
-                    update_archive(self.mod.unpacked_path, self.mod.packed_path, delay = 0.4)
-
-                self.mod.status = 'sync'
-                self.rate_limiter.notify(title='Gazi Guard', message='Changes saved!')
-        self.mod.status = 'sync'
         
-        
-class ModArchive:
-    def __init__(self, comms):
-        # Path to the mod archive
-        self.comms = comms
-        self.status = 'sync'
-        self.action = 'Initialized. No changes detected.'
-        self.unpacked_path = None
-        self.packed_path = None
-        comms.send_message(comms.message.action(self.action))
-    @property
-    def status(self):
-        return self._status
-    
-    @status.setter
-    def status(self, state):
-
-        if state == 'desync':
-            self.action = 'Updating...'
-            
-        if state == 'sync':
-            self.action = 'Repacked!'
-        comms.send_message(comms.message.set(state))            
-        comms.send_message(comms.message.action(self.action))
-        self._status = state
+    def on_moved(self, event):
+        print(f"on_moved event: {event}", file=sys.stderr)
+        self.add_event(event)  
+        self.mod.status = 'desync'        
 
 class ObserverHandler:
-    # def __init__(self, mod_unpack_path, mod_pak, copy_to):
     def __init__(self, mod, notifications):
         self.mod = mod
         self.mod_unpack_path = mod.unpacked_path
         self.mod_pak = mod.packed_path
         self.notifications = notifications
-        # self.copy_to = copy_to
         self.file_observer = Observer()
-        # self.event_handler = FileChangeHandler(mod_unpack_path=self.mod_unpack_path, mod_pak=self.mod_pak, copy_to=self.copy_to)
         self.event_handler = FileChangeHandler(mod, notifications)
     def start(self):
         self.file_observer.schedule(self.event_handler, path=self.mod_unpack_path, recursive=True)
@@ -224,9 +242,11 @@ def initialize_workspace():
         hide_unpacked_content, meld_config_path, use_meld, backup_enabled, backup_count, notifications = config.dump_settings()
 
     logger.log_info(f"\ntarget_workspace: {target_workspace}\nmod.packed_path: {mod.packed_path}\nmeld_config_path: {meld_config_path}")
-    with zipfile.ZipFile(mod.packed_path, 'w') as zip:
-        if len(zip.namelist()) == 0:
-            zip.writestr("GENERATED", "This file was automatically generated.")
+    
+    with zipfile.ZipFile(mod.packed_path, 'r') as zip_read:
+        if len(zip_read.namelist()) == 0:
+            with zipfile.ZipFile(mod.packed_path, 'w') as zip:
+                zip.writestr("GENERATED", "This file was automatically generated.")
     if target_workspace is None or not os.path.exists(target_workspace):
         logger.log_warning('target_workspace is None:')
         user_selection = file_selector_dialog("Folder containing data0.pak, data1.pak, and dataX.pak")
@@ -245,26 +265,25 @@ def initialize_workspace():
         user_selection = file_selector_dialog("Please select Meld.exe", file_extension="*.exe", file_type_description="Meld Executable")
         config.meld_config_path, meld_config_path = user_selection, user_selection
 
-    # if not mod_path:
-    # time.sleep(10)
-    # logger.log_variable('')
     backup_path = os.path.join(target_workspace, 'Unpacked\\backups\\')
+    #region LOGGING VARS
     # mod.packed_path = choose_mod_pak(os.path.join(target_workspace,mod_path), target_workspace)
-    
-    # logger.log_variable("mod.packed_path", mod.packed_path)
-    # logger.log_variable("target_workspace", target_workspace)
-    # # logger.log_variable("copy_to", copy_to)
-    # # logger.log_variable("deep_scan_enabled", deep_scan_enabled)
-    # # logger.log_variable("source_pak_0", source_pak_0)
-    # # logger.log_variable("source_pak_1", source_pak_1)
-    # logger.log_variable("mod_path", mod_path)
-    # logger.log_variable("overwrite_default", overwrite_default)
-    # logger.log_variable("hide_unpacked_content", hide_unpacked_content)
-    # logger.log_variable("meld_config_path", meld_config_path)
-    # logger.log_variable("use_meld", use_meld)
-    # logger.log_variable("backup_enabled", backup_enabled)
-    # logger.log_variable("backup_count", backup_count)
+    logger.log_variable("mod.packed_path", mod.packed_path)
+    logger.log_variable("target_workspace", target_workspace)
+    logger.log_variable("copy_to", copy_to)
+    logger.log_variable("deep_scan_enabled", deep_scan_enabled)
+    logger.log_variable("source_pak_0", source_pak_0)
+    logger.log_variable("source_pak_1", source_pak_1)
+    logger.log_variable("mod.unpacked_path", mod.unpacked_path)
+    logger.log_variable("overwrite_default", overwrite_default)
+    logger.log_variable("hide_unpacked_content", hide_unpacked_content)
+    logger.log_variable("meld_config_path", meld_config_path)
+    logger.log_variable("use_meld", use_meld)
+    logger.log_variable("backup_enabled", backup_enabled)
+    logger.log_variable("backup_count", backup_count)
     #immediate backup on selection
+    #endregion
+    
     if backup_enabled:
         backup_handler = BackupHandler(backup_path, backup_count, mod.packed_path)
     source_pak_0 = os.path.join(target_workspace, source_pak_0)
@@ -293,78 +312,17 @@ def initialize_workspace():
 
     return (merged_unpack_path, use_meld, meld_config_path, copy_to, notifications)
 
-class CommsManager():
-    def __init__(self):
-        self.running = False
-        self.listener_thread = None
-        self.message = AbstractMessage()
-        self.inbox = {}
-    def request(self,item):
-        self.send_message(self.message.request(item))
-        
-        while item not in self.inbox:
-            time.sleep(0.01)
-        return self.inbox[item]
-            
-        
-    def listen(self):
-        '''starts daemon thread '''
-        self.running = True
-        self.listener_thread = threading.Thread(target=self._listen)
-        self.listener_thread.daemon = True
-        self.listener_thread.start()
 
-    def stop(self):
-        self.running = False
-        if self.listener_thread is not None:
-            self.listener_thread.join()
-
-    def _listen(self):
-        while self.running:
-            # Receive messages from the frontend
-            stdin = sys.stdin.readline().strip()
-            stdin = [line.strip('*') for line in stdin.split('\n') if line.startswith('*')]
-            # logger_iter(stdin)
-            for line in stdin:
-                # Process the received message
-                response = self.process_message(line)
-                # Send the response back to the frontend
-                if response:
-                    self.send_message(response)
-            
-    def process_message(self, data):
-        # Add your custom logic here based on the received message
-   
-        payload_type, payload = data.split(":")
-        
-        return self.compose_response(payload_type, payload)
-    
-
-    def send_message(self, response):
-        # Send the response back to the frontend
-        
-        print(response, flush=True)
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-    def compose_response(self, payload_type, payload):
-        #map message type and payload to a response for return value
-        #start with exhaustive switching
-        if payload_type == 'request':
-            if payload == 'pid':
-                return self.message.pid(os.getpid())
-        if payload_type == 'pid':
-            #no response
-            self.inbox[payload_type]=int(payload)
-            return None
-            
 
 def main():
     merged_unpack_path, use_meld, meld_config_path, copy_to, notifications = initialize_workspace()
+    
+    #region LOGGING MAINLOOP VARS
     # logger.log_variable("merged_unpack_path", merged_unpack_path)
     # logger.log_variable("use_meld", use_meld)
     # logger.log_variable("meld_config_path", meld_config_path)
     # logger.log_variable("copy_to", copy_to)
+    #endregion
     
     # Create the system tray icon
     tray = threading.Thread(target=tray_thread)
